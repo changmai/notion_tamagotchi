@@ -7,11 +7,12 @@ import {
     signOut,
     onAuthStateChanged 
 } from "https://www.gstatic.com/firebasejs/9.22.2/firebase-auth.js";
-// *** NEW ***: Firestore DB를 사용하기 위한 함수들을 가져옵니다.
+// Firestore DB 함수에 'getDoc'을 추가로 가져옵니다.
 import { 
     getFirestore, 
     doc, 
-    setDoc 
+    setDoc,
+    getDoc 
 } from "https://www.gstatic.com/firebasejs/9.22.2/firebase-firestore.js";
 
 // 1. Firebase 설정
@@ -29,14 +30,13 @@ const firebaseConfig = {
 const app = initializeApp(firebaseConfig);
 const auth = getAuth(app);
 const provider = new GoogleAuthProvider();
-const db = getFirestore(app); // Firestore 데이터베이스 서비스 초기화
+const db = getFirestore(app);
 
 // 3. Notion OAuth 설정
-const NOTION_CLIENT_ID = "259d872b-594c-80c7-9fd9-0037bc5be4d1"; // 실제 값으로 변경해야 합니다.
+const NOTION_CLIENT_ID = "259d872b-594c-80c7-9fd9-0037bc5be4d1";
 const NOTION_REDIRECT_URI = "https://notiontamagotchi.netlify.app"; 
 
 // 4. HTML 요소 가져오기
-// ... (이전과 동일)
 const welcomeMessage = document.getElementById('welcomeMessage');
 const authButton = document.getElementById('authButton');
 const authStatus = document.getElementById('authStatus');
@@ -45,9 +45,7 @@ const notionConnectButton = document.getElementById('notionConnectButton');
 const notionStatus = document.getElementById('notionStatus');
 const gameSection = document.getElementById('gameSection');
 
-
 // 5. 로그인/로그아웃 함수
-// ... (이전과 동일)
 const signIn = () => signInWithPopup(auth, provider).catch(handleAuthError);
 const logOut = () => signOut(auth).catch((error) => console.error("로그아웃 실패:", error));
 
@@ -57,17 +55,14 @@ function handleAuthError(error) {
     authStatus.classList.remove('hidden');
 }
 
-
 // 6. 노션 연동 함수 (OAuth 리디렉션)
-// ... (이전과 동일)
 const connectToNotion = () => {
     console.log("노션 인증 페이지로 이동합니다...");
     const authUrl = `https://api.notion.com/v1/oauth/authorize?client_id=${NOTION_CLIENT_ID}&response_type=code&owner=user&redirect_uri=${encodeURIComponent(NOTION_REDIRECT_URI)}`;
     window.location.href = authUrl;
 };
 
-
-// *** UPDATED *** 7. 노션 인증 후 콜백 처리 및 토큰 저장 함수
+// 7. 노션 인증 후 콜백 처리 및 토큰 저장 함수
 const handleNotionCallback = async () => {
     const urlParams = new URLSearchParams(window.location.search);
     const notionCode = urlParams.get('code');
@@ -98,10 +93,8 @@ const handleNotionCallback = async () => {
             const tokenData = await response.json();
             console.log("성공적으로 액세스 토큰을 받았습니다:", tokenData);
             
-            // *** NEW ***: 받은 액세스 토큰을 Firestore에 저장합니다.
             const user = auth.currentUser;
             if (user) {
-                // 저장 경로: /users/{사용자ID}/notion/token
                 const tokenDocRef = doc(db, "users", user.uid, "notion", "token");
                 await setDoc(tokenDocRef, tokenData);
                 console.log("Firestore에 토큰을 성공적으로 저장했습니다.");
@@ -124,19 +117,35 @@ const handleNotionCallback = async () => {
 };
 
 // 8. 노션 연동 상태 UI 업데이트 함수
-// ... (이전과 동일)
 const updateNotionUI = (isConnected) => {
     if (isConnected) {
         notionConnectButton.textContent = '노션 재연동하기';
         notionConnectButton.classList.remove('bg-gray-800', 'hover:bg-gray-900');
         notionConnectButton.classList.add('bg-green-600', 'hover:bg-green-700');
         notionStatus.classList.remove('hidden');
+        notionStatus.textContent = '✅ 노션 연동 완료!';
+        notionStatus.classList.remove('text-red-600');
+        notionStatus.classList.add('text-green-600');
+    }
+};
+
+// *** NEW *** 9. Firestore에서 노션 토큰 확인하는 함수
+const checkNotionConnection = async (user) => {
+    if (!user) return;
+
+    const tokenDocRef = doc(db, "users", user.uid, "notion", "token");
+    const docSnap = await getDoc(tokenDocRef);
+
+    if (docSnap.exists()) {
+        console.log("저장된 노션 토큰을 찾았습니다:", docSnap.data());
+        updateNotionUI(true); // 토큰이 있으면 UI를 '연동 완료' 상태로 변경
+    } else {
+        console.log("저장된 노션 토큰이 없습니다.");
     }
 };
 
 
-// 9. 사용자 인증 상태 변화 감지
-// ... (이전과 동일)
+// *** UPDATED *** 10. 사용자 인증 상태 변화 감지
 onAuthStateChanged(auth, (user) => {
     if (user) {
         welcomeMessage.textContent = `${user.displayName}님, 환영합니다!`;
@@ -150,7 +159,11 @@ onAuthStateChanged(auth, (user) => {
         authButton.onclick = logOut;
         notionConnectButton.onclick = connectToNotion;
 
+        // 노션 인증 후 돌아온 경우를 먼저 처리
         handleNotionCallback();
+        // 그 다음, 저장된 토큰이 있는지 확인하여 UI 업데이트
+        checkNotionConnection(user);
+
     } else {
         welcomeMessage.textContent = '로그인하여 다마고치를 키워보세요!';
         authButton.textContent = '구글 계정으로 시작하기';
