@@ -23,7 +23,8 @@ const firebaseConfig = {
   apiKey: "AIzaSyDZZMSJG4sh9Vw-T7pjMztC2swkOg1i8os",
   authDomain: "notion-tamagotchi.firebaseapp.com",
   projectId: "notion-tamagotchi",
-  storageBucket: "notion-tamagotchi.firebasestorage.app",
+  // *** UPDATED ***: storageBucket 주소 형식을 올바르게 수정했습니다.
+  storageBucket: "notion-tamagotchi.appspot.com",
   messagingSenderId: "128399204318",
   appId: "1:128399204318:web:197bf0d12b437b910f474f",
   measurementId: "G-02V3VDK4Q6"
@@ -48,8 +49,7 @@ const notionConnectButton = document.getElementById('notionConnectButton');
 const notionStatus = document.getElementById('notionStatus');
 const gameSection = document.getElementById('gameSection');
 
-// *** UPDATED *** 5. 로그인/로그아웃 함수 (Redirect 방식)
-// signIn 함수가 더 간단해졌습니다.
+// 5. 로그인/로그아웃 함수 (Redirect 방식)
 const signIn = () => {
     signInWithRedirect(auth, provider).catch(handleAuthError);
 };
@@ -152,7 +152,7 @@ const checkNotionConnection = async (user) => {
 };
 
 
-// *** UPDATED ***: 앱 시작 시 인증 상태를 처리하는 로직
+// 10. 앱 시작 시 인증 상태를 처리하는 로직
 const initializeAppAuth = async () => {
     try {
         // 앱이 시작될 때 가장 먼저 영구 저장소 사용을 설정합니다.
