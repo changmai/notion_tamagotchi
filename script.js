@@ -15,8 +15,7 @@ import {
     getFirestore, 
     doc, 
     setDoc,
-    getDoc,
-    onSnapshot
+    getDoc 
 } from "https://www.gstatic.com/firebasejs/9.22.2/firebase-firestore.js";
 import { getFunctions, httpsCallable } from "https://www.gstatic.com/firebasejs/9.22.2/firebase-functions.js";
 
@@ -46,7 +45,6 @@ const NOTION_REDIRECT_URI = "https://notiontamagotchi.netlify.app";
 const welcomeMessage = document.getElementById('welcomeMessage');
 const authButton = document.getElementById('authButton');
 const authStatus = document.getElementById('authStatus');
-const loadingOverlay = document.getElementById('loadingOverlay');
 const notionSection = document.getElementById('notionSection');
 const notionConnectButton = document.getElementById('notionConnectButton');
 const notionStatus = document.getElementById('notionStatus');
@@ -59,26 +57,30 @@ const tamagotchiImage = document.getElementById('tamagotchiImage');
 const tamagotchiLevel = document.getElementById('tamagotchiLevel');
 const expDisplay = document.getElementById('expDisplay');
 const expBar = document.getElementById('expBar');
-const embedSection = document.getElementById('embedSection');
-const embedLinkInput = document.getElementById('embedLinkInput');
-const copyLinkButton = document.getElementById('copyLinkButton');
-const copyStatus = document.getElementById('copyStatus');
+const embedSection = document.getElementById('embedSection'); // 새 요소
+const embedLinkInput = document.getElementById('embedLinkInput'); // 새 요소
+const copyLinkButton = document.getElementById('copyLinkButton'); // 새 요소
+const copyStatus = document.getElementById('copyStatus'); // 새 요소
 
-let tamagotchiStateUnsubscribe = null;
+// 경험치 자동 업데이트를 위한 변수
+let expUpdateInterval = null;
 
-// 5. 로그인/로그아웃 함수
-const signIn = () => {
-    signInWithPopup(auth, provider).catch((error) => {
+// 5. 로그인/로그아웃 함수 (하이브리드 방식)
+const signIn = async () => {
+    try {
+        await setPersistence(auth, browserLocalPersistence);
+        await signInWithPopup(auth, provider);
+    } catch (error) {
         if (error.code === 'auth/popup-blocked' || error.code === 'auth/cancelled-popup-request') {
             signInWithRedirect(auth, provider).catch(handleAuthError);
         } else {
             handleAuthError(error);
         }
-    });
+    }
 };
 
 const logOut = () => {
-    if (tamagotchiStateUnsubscribe) tamagotchiStateUnsubscribe();
+    clearInterval(expUpdateInterval); // 로그아웃 시 자동 업데이트 중지
     signOut(auth).catch((error) => console.error("로그아웃 실패:", error));
 };
 
@@ -94,22 +96,27 @@ const connectToNotion = () => {
     window.location.href = authUrl;
 };
 
-// 7. 노션 인증 후 콜백 처리
+// 7. 노션 인증 후 콜백 처리 및 토큰 저장 함수
 const handleNotionCallback = async (user) => {
     if (!user) return;
     const urlParams = new URLSearchParams(window.location.search);
     const notionCode = urlParams.get('code');
+
     if (notionCode) {
         notionConnectButton.textContent = '토큰 교환 중...';
         notionConnectButton.disabled = true;
         window.history.replaceState({}, document.title, window.location.pathname);
+
         try {
             const exchangeCodeForToken = httpsCallable(functions, 'exchangeCodeForToken');
             const tokenData = await exchangeCodeForToken({ code: notionCode, redirectUri: NOTION_REDIRECT_URI });
+            
             const tokenDocRef = doc(db, "users", user.uid, "notion", "token");
             await setDoc(tokenDocRef, tokenData.data);
+            
             updateNotionUI(true);
             loadDatabases();
+
         } catch (error) {
             console.error("액세스 토큰 처리 실패:", error);
             notionStatus.textContent = `오류: 토큰 처리에 실패했습니다.`;
@@ -119,7 +126,7 @@ const handleNotionCallback = async (user) => {
     }
 };
 
-// 8. UI 업데이트 함수
+// 8. 노션 연동 상태 UI 업데이트 함수
 const updateNotionUI = (isConnected) => {
     if (isConnected) {
         notionConnectButton.textContent = '노션 재연동하기';
@@ -130,56 +137,39 @@ const updateNotionUI = (isConnected) => {
     }
 };
 
-// *** UPDATED *** 9. 사용자 데이터 로드 및 자동 업데이트 시작
+// 9. Firestore에서 사용자 데이터(토큰 및 설정) 로드 함수
 const loadUserData = async (user) => {
     if (!user) return;
-    loadingOverlay.style.display = 'flex';
+    const tokenDocRef = doc(db, "users", user.uid, "notion", "token");
+    const tokenSnap = await getDoc(tokenDocRef);
 
-    try {
-        const tokenDocRef = doc(db, "users", user.uid, "notion", "token");
-        const tokenSnap = await getDoc(tokenDocRef);
+    if (tokenSnap.exists()) {
+        updateNotionUI(true);
+        await loadDatabases();
 
-        if (tokenSnap.exists()) {
-            updateNotionUI(true);
-            await loadDatabases(); // 데이터베이스 목록 로드
+        const settingsDocRef = doc(db, "users", user.uid, "notion", "settings");
+        const settingsSnap = await getDoc(settingsDocRef);
 
-            const settingsDocRef = doc(db, "users", user.uid, "notion", "settings");
-            const settingsSnap = await getDoc(settingsDocRef);
-
-            if (settingsSnap.exists()) {
-                console.log("저장된 설정을 찾았습니다. UI를 업데이트하고 초기 경험치 계산을 시작합니다.");
-                const { selectedDbId, propertyName } = settingsSnap.data();
-                
-                databaseSelect.value = selectedDbId;
-                await loadProperties();
-                propertySelect.value = propertyName;
-
-                // 저장된 설정이 유효하면, 즉시 경험치 업데이트를 한 번 요청합니다.
-                // 이 요청이 성공하면, 실시간 리스너가 첫 데이터를 받아 화면을 그리고,
-                // 이후 서버의 자동 업데이트를 계속 감지하게 됩니다.
-                if (databaseSelect.value && propertySelect.value) {
-                    console.log("저장된 설정으로 즉시 업데이트를 요청합니다.");
-                    const calculateExperience = httpsCallable(functions, 'calculateExperience');
-                    await calculateExperience();
-                }
-            }
+        if (settingsSnap.exists()) {
+            const { selectedDbId, propertyName } = settingsSnap.data();
+            databaseSelect.value = selectedDbId;
+            await loadProperties();
+            propertySelect.value = propertyName;
+            startExperienceCalculation(false);
         }
-    } catch (error) {
-        console.error("사용자 데이터 로드 중 오류 발생:", error);
-        alert("사용자 정보를 불러오는 데 실패했습니다.");
-    } finally {
-        loadingOverlay.style.display = 'none';
     }
 };
 
-// 10. 데이터베이스 및 속성 로드
+// 10. 데이터베이스 목록 로드 함수
 const loadDatabases = async () => {
     databaseSelect.innerHTML = '<option>데이터베이스 목록을 불러오는 중...</option>';
     databaseSelect.disabled = true;
+
     try {
         const getNotionDatabases = httpsCallable(functions, 'getNotionDatabases');
         const result = await getNotionDatabases();
         const { databases } = result.data;
+
         if (databases && databases.length > 0) {
             databaseSelect.innerHTML = '<option value="">-- 데이터베이스 선택 --</option>';
             databases.forEach(db => {
@@ -192,13 +182,15 @@ const loadDatabases = async () => {
         } else {
             databaseSelect.innerHTML = '<option>공유된 데이터베이스가 없습니다.</option>';
         }
+
     } catch (error) {
-        console.error("데이터베이스 목록 로드 실패:", error);
         databaseSelect.innerHTML = `<option>오류: ${error.message}</option>`;
     }
 };
 
+// 11. 속성 목록 로드 함수
 const loadProperties = async () => {
+    clearInterval(expUpdateInterval);
     const selectedDbId = databaseSelect.value;
     if (!selectedDbId) {
         propertySelect.innerHTML = '<option>먼저 데이터베이스를 선택하세요.</option>';
@@ -206,13 +198,16 @@ const loadProperties = async () => {
         startButton.disabled = true;
         return;
     }
+
     propertySelect.innerHTML = '<option>속성 목록 불러오는 중...</option>';
     propertySelect.disabled = true;
     startButton.disabled = true;
+
     try {
         const getDatabaseProperties = httpsCallable(functions, 'getDatabaseProperties');
         const result = await getDatabaseProperties({ databaseId: selectedDbId });
         const { properties } = result.data;
+
         if (properties && properties.length > 0) {
             propertySelect.innerHTML = '';
             properties.forEach(propName => {
@@ -226,159 +221,130 @@ const loadProperties = async () => {
         } else {
             propertySelect.innerHTML = '<option>계산할 숫자/함수 속성이 없습니다.</option>';
         }
+
     } catch (error) {
-        console.error("속성 목록 로드 실패:", error);
         propertySelect.innerHTML = `<option>오류: ${error.message}</option>`;
     }
 };
 
-// 11. 다마고치 상태 실시간 감지
-const listenToTamagotchiState = (user) => {
-    if (tamagotchiStateUnsubscribe) tamagotchiStateUnsubscribe();
-    const stateDocRef = doc(db, "users", user.uid, "tamagotchi", "state");
-    tamagotchiStateUnsubscribe = onSnapshot(stateDocRef, (docSnap) => {
-        if (docSnap.exists()) {
-            console.log("Firestore에서 실시간 업데이트를 감지했습니다!");
-            const { totalExp, daysOfStagnation = 0 } = docSnap.data();
-            updateTamagotchiVisuals(totalExp, daysOfStagnation);
-        }
-    });
-};
+// 12. 경험치 계산 및 자동 업데이트 시작 함수
+const startExperienceCalculation = async (showAlert = true) => {
+    clearInterval(expUpdateInterval);
 
-// 12. 경험치 계산 시작
-const startExperienceCalculation = async () => {
     const selectedDbId = databaseSelect.value;
     const propertyName = propertySelect.value;
+
     if (!selectedDbId || !propertyName) {
-        return alert("데이터베이스와 속성을 모두 선택해주세요!");
+        if (showAlert) alert("데이터베이스와 속성을 모두 선택해주세요!");
+        return;
     }
+
     const user = auth.currentUser;
     if (user) {
         const settingsDocRef = doc(db, "users", user.uid, "notion", "settings");
         await setDoc(settingsDocRef, { selectedDbId, propertyName });
     }
-    startButton.textContent = "업데이트 요청 중...";
-    startButton.disabled = true;
-    try {
-        const calculateExperience = httpsCallable(functions, 'calculateExperience');
-        await calculateExperience();
-        alert("설정이 저장되었고, 즉시 경험치를 업데이트했습니다. 이제 서버에서 자동으로 업데이트됩니다.");
-    } catch (error) {
-        alert(`오류: ${error.message}`);
-    } finally {
-        startButton.textContent = "설정 저장 및 업데이트 시작";
-        startButton.disabled = false;
-    }
-};
 
-// 13. 다마고치 시각화 업데이트
-const updateTamagotchiVisuals = (exp, daysOfStagnation) => {
-    let level = 1, levelName = "알", maxExp = 100;
-    let state = 'happy', color = '#A0AEC0';
+    const updateExp = async () => {
+        startButton.textContent = "경험치 업데이트 중...";
+        startButton.disabled = true;
 
-    if (exp >= 5000) { level = 10; levelName = "전설"; maxExp = 10000; color = "#F59E0B"; }
-    else if (exp >= 4000) { level = 9; levelName = "궁극체"; maxExp = 5000; color = "#EF4444"; }
-    else if (exp >= 3000) { level = 8; levelName = "완전체"; maxExp = 4000; color = "#8B5CF6"; }
-    else if (exp >= 2200) { level = 7; levelName = "성숙기"; maxExp = 3000; color = "#3B82F6"; }
-    else if (exp >= 1500) { level = 6; levelName = "성장기"; maxExp = 2200; color = "#10B981"; }
-    else if (exp >= 900) { level = 5; levelName = "유년기2"; maxExp = 1500; color = "#EC4899"; }
-    else if (exp >= 400) { level = 4; levelName = "유년기1"; maxExp = 900; color = "#F97316"; }
-    else if (exp >= 100) { level = 3; levelName = "유아기"; maxExp = 400; color = "#14B8A6"; }
-    else if (exp > 0) { level = 2; levelName = "새싹"; maxExp = 100; color = "#84CC16"; }
-    
-    if (daysOfStagnation >= 10) {
-        levelName = "RIP"; state = 'dead'; color = '#1F2937';
-    } else if (daysOfStagnation >= 1) {
-        levelName += " (아픔)"; state = 'sick'; color = '#78716C';
-    }
+        try {
+            const calculateExperience = httpsCallable(functions, 'calculateExperience');
+            const result = await calculateExperience({ databaseId: selectedDbId, propertyName: propertyName });
+            const { totalExp } = result.data;
 
-    tamagotchiImage.src = `https://placehold.co/150x150/${color.substring(1)}/FFF?text=${levelName}_${state}.gif`;
-    tamagotchiLevel.textContent = `Level ${level}: ${levelName}`;
-    expDisplay.textContent = exp;
-    expBar.style.width = `${Math.min((exp / maxExp) * 100, 100)}%`;
-};
+            expDisplay.textContent = totalExp;
+            const expPercentage = Math.min((totalExp / 1000) * 100, 100);
+            expBar.style.width = `${expPercentage}%`;
+            
+            updateTamagotchiVisuals(totalExp);
 
-// 14. 링크 복사 함수
-const copyEmbedLink = () => {
-    const linkToCopy = embedLinkInput.value;
-    if (navigator.clipboard && navigator.clipboard.writeText) {
-        navigator.clipboard.writeText(linkToCopy).then(() => {
-            copyStatus.textContent = "✅ 복사 완료!";
-            setTimeout(() => { copyStatus.textContent = ""; }, 2000);
-        }).catch(() => fallbackCopyTextToClipboard(linkToCopy));
-    } else {
-        fallbackCopyTextToClipboard(linkToCopy);
-    }
-};
-
-function fallbackCopyTextToClipboard(text) {
-    const textArea = document.createElement("textarea");
-    textArea.value = text;
-    textArea.style.position = "fixed";
-    textArea.style.top = "0";
-    textArea.style.left = "0";
-    document.body.appendChild(textArea);
-    textArea.focus();
-    textArea.select();
-    try {
-        if (document.execCommand('copy')) {
-            copyStatus.textContent = "✅ 복사 완료!";
-            setTimeout(() => { copyStatus.textContent = ""; }, 2000);
+        } catch (error) {
+            console.error("경험치 계산 실패:", error);
+            clearInterval(expUpdateInterval);
+            alert(`오류: ${error.message}`);
+        } finally {
+            startButton.textContent = "경험치 자동 업데이트 시작!";
+            startButton.disabled = false;
         }
-    } catch (err) {
-        copyStatus.textContent = "복사 실패. 직접 복사해주세요.";
-        copyStatus.classList.add('text-red-600');
-    }
-    document.body.removeChild(textArea);
-}
+    };
 
-// 15. 앱 시작 로직
-const mainApp = async () => {
-    try {
-        await setPersistence(auth, browserLocalPersistence);
-        
-        onAuthStateChanged(auth, (user) => {
-            if (user) {
-                // 로그인 UI 업데이트
-                gameSection.classList.remove('hidden');
-                embedSection.classList.remove('hidden');
-                notionSection.classList.remove('hidden');
-                welcomeMessage.textContent = `${user.displayName}님, 환영합니다!`;
-                authButton.textContent = '로그아웃';
-                authStatus.classList.add('hidden');
-                authButton.onclick = logOut;
-                notionConnectButton.onclick = connectToNotion;
-                databaseSelect.onchange = loadProperties;
-                startButton.onclick = startExperienceCalculation;
-                copyLinkButton.onclick = copyEmbedLink;
-
-                // 기능 로직 실행
-                listenToTamagotchiState(user);
-                handleNotionCallback(user);
-                loadUserData(user);
-                
-                const imageUrl = `https://asia-northeast3-notion-tamagotchi.cloudfunctions.net/serveTamagotchiImage?uid=${user.uid}`;
-                embedLinkInput.value = imageUrl;
-
-            } else {
-                // 로그아웃 UI 업데이트
-                welcomeMessage.textContent = '로그인하여 다마고치를 키워보세요!';
-                authButton.textContent = '구글 계정으로 시작하기';
-                authStatus.classList.add('hidden');
-                authButton.onclick = signIn;
-                gameSection.classList.add('hidden');
-                embedSection.classList.add('hidden');
-                notionSection.classList.add('hidden');
-                databaseSection.classList.add('hidden');
-            }
-        });
-
-        await getRedirectResult(auth);
-
-    } catch (error) {
-        handleAuthError(error);
-    }
+    updateExp();
+    expUpdateInterval = setInterval(updateExp, 60000);
+    if (showAlert) alert("경험치 자동 업데이트가 시작되었습니다. 1분마다 갱신됩니다.");
 };
 
-// 앱 시작!
-mainApp();
+// 13. 다마고치 시각화 업데이트 함수
+const updateTamagotchiVisuals = (exp) => {
+    let level = 1;
+    let levelName = "알";
+    let imageUrl = "https://placehold.co/150x150/E2E8F0/A0AEC0?text=Egg";
+
+    if (exp >= 1000) {
+        level = 5;
+        levelName = "어른";
+        imageUrl = "https://placehold.co/150x150/FDE68A/D97706?text=Adult";
+    } else if (exp >= 600) {
+        level = 4;
+        levelName = "청소년";
+        imageUrl = "https://placehold.co/150x150/FBCFE8/DB2777?text=Teen";
+    } else if (exp >= 300) {
+        level = 3;
+        levelName = "어린이";
+        imageUrl = "https://placehold.co/150x150/BAE6FD/0284C7?text=Child";
+    } else if (exp >= 100) {
+        level = 2;
+        levelName = "아기";
+        imageUrl = "https://placehold.co/150x150/A7F3D0/10B981?text=Baby";
+    }
+
+    tamagotchiImage.src = imageUrl;
+    tamagotchiLevel.textContent = `Level ${level}: ${levelName}`;
+};
+
+// *** NEW *** 14. 임베딩 링크 복사 함수
+const copyEmbedLink = () => {
+    embedLinkInput.select();
+    document.execCommand('copy');
+    copyStatus.textContent = "✅ 복사 완료!";
+    setTimeout(() => {
+        copyStatus.textContent = "";
+    }, 2000); // 2초 후에 메시지 사라짐
+};
+
+// 15. 앱 시작 시 인증 상태를 처리하는 핵심 로직
+try {
+    await getRedirectResult(auth);
+    onAuthStateChanged(auth, (user) => {
+        if (user) {
+            welcomeMessage.textContent = `${user.displayName}님, 환영합니다!`;
+            authButton.textContent = '로그아웃';
+            notionSection.classList.remove('hidden');
+            gameSection.classList.remove('hidden');
+            embedSection.classList.remove('hidden'); // 링크 섹션 보이기
+            authButton.onclick = logOut;
+            notionConnectButton.onclick = connectToNotion;
+            databaseSelect.onchange = loadProperties;
+            startButton.onclick = startExperienceCalculation;
+            copyLinkButton.onclick = copyEmbedLink; // 복사 버튼에 기능 연결
+
+            // *** NEW ***: 임베딩 링크 생성 및 표시
+            const imageUrl = `https://asia-northeast3-notion-tamagotchi.cloudfunctions.net/serveTamagotchiImage?uid=${user.uid}`;
+            embedLinkInput.value = imageUrl;
+
+            handleNotionCallback(user);
+            loadUserData(user);
+        } else {
+            welcomeMessage.textContent = '로그인하여 다마고치를 키워보세요!';
+            authButton.textContent = '구글 계정으로 시작하기';
+            notionSection.classList.add('hidden');
+            databaseSection.classList.add('hidden');
+            gameSection.classList.add('hidden');
+            embedSection.classList.add('hidden'); // 링크 섹션 숨기기
+            authButton.onclick = signIn;
+        }
+    });
+} catch (error) {
+    handleAuthError(error);
+}
