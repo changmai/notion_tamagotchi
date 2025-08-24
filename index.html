@@ -1,0 +1,65 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>노션 다마고치</title>
+    <!-- Tailwind CSS CDN -->
+    <script src="https://cdn.tailwindcss.com"></script>
+</head>
+<body class="bg-gray-100 flex items-center justify-center min-h-screen font-sans">
+    
+    <!-- 앱 전체 컨테이너 -->
+    <div class="bg-white p-8 rounded-xl shadow-lg max-w-sm w-full text-center transition-all duration-500">
+        
+        <h1 class="text-3xl font-bold mb-4 text-gray-800">나의 노션 다마고치</h1>
+        <p id="welcomeMessage" class="text-gray-500 mb-6">로그인하여 다마고치를 키워보세요!</p>
+        
+        <!-- 1. 로그인/로그아웃 버튼 -->
+        <button id="authButton" class="bg-blue-500 hover:bg-blue-600 text-white font-bold py-2 px-6 rounded-lg transition duration-300 ease-in-out w-full">
+            구글 계정으로 시작하기
+        </button>
+        
+        <!-- 2. 로그인 상태 메시지 -->
+        <p id="authStatus" class="mt-4 text-sm text-gray-500 hidden"></p>
+        
+        <!-- 3. 노션 연동 섹션 (로그인 후 보임) -->
+        <div id="notionSection" class="mt-6 hidden">
+            <h2 class="text-xl font-semibold text-gray-700">STEP 1. 노션 연동</h2>
+            <button id="notionConnectButton" class="bg-gray-800 hover:bg-gray-900 text-white font-bold py-2 px-4 rounded-lg mt-2 transition duration-300 ease-in-out w-full">
+                노션 연동하기
+            </button>
+            <p id="notionStatus" class="mt-2 text-sm text-green-600 font-semibold hidden">✅ 노션 연동 완료!</p>
+        </div>
+        
+        <hr class="my-6 border-t border-gray-200" />
+        
+        <!-- 4. 다마고치 게임 화면 -->
+        <div id="gameSection" class="hidden">
+            <h2 class="text-2xl font-semibold text-gray-700">나의 다마고치</h2>
+            
+            <!-- 다마고치 GIF 표시 영역 -->
+            <div id="tamagotchiContainer" class="mt-4 p-4 bg-gray-100 rounded-lg min-h-[180px] flex items-center justify-center">
+                <img id="tamagotchiImage" src="https://placehold.co/150x150/E2E8F0/A0AEC0?text=...Zzz" alt="다마고치 이미지" class="mx-auto rounded-full w-36 h-36">
+            </div>
+            
+            <!-- 경험치(EXP) 표시 -->
+            <div class="mt-4">
+                <p class="text-lg font-bold text-gray-800">경험치(EXP)</p>
+                <div class="w-full bg-gray-200 rounded-full h-4 mt-1">
+                    <div id="expBar" class="bg-green-500 h-4 rounded-full" style="width: 0%"></div>
+                </div>
+                <p id="expDisplay" class="text-xl font-bold text-green-600 mt-1">0</p>
+            </div>
+        </div>
+        
+    </div>
+
+    <!-- 
+      JavaScript 파일을 불러옵니다. 
+      'type="module"'은 import 구문을 사용하기 위해 필수입니다.
+    -->
+    <script type="module" src="script.js"></script>
+    
+</body>
+</html>
