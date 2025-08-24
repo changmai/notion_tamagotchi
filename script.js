@@ -50,11 +50,14 @@ const notionConnectButton = document.getElementById('notionConnectButton');
 const notionStatus = document.getElementById('notionStatus');
 const databaseSection = document.getElementById('databaseSection');
 const databaseSelect = document.getElementById('databaseSelect');
-const propertyInput = document.getElementById('propertyInput'); // 새 요소
+const propertySelect = document.getElementById('propertySelect'); // 새 요소
 const startButton = document.getElementById('startButton');
 const gameSection = document.getElementById('gameSection');
-const expDisplay = document.getElementById('expDisplay'); // 새 요소
-const expBar = document.getElementById('expBar');       // 새 요소
+const expDisplay = document.getElementById('expDisplay');
+const expBar = document.getElementById('expBar');
+
+// *** NEW ***: 경험치 자동 업데이트를 위한 변수
+let expUpdateInterval = null;
 
 // 5. 로그인/로그아웃 함수 (하이브리드 방식)
 const signIn = async () => {
@@ -70,7 +73,10 @@ const signIn = async () => {
     }
 };
 
-const logOut = () => signOut(auth).catch((error) => console.error("로그아웃 실패:", error));
+const logOut = () => {
+    clearInterval(expUpdateInterval); // 로그아웃 시 자동 업데이트 중지
+    signOut(auth).catch((error) => console.error("로그아웃 실패:", error));
+};
 
 function handleAuthError(error) {
     console.error("인증 실패:", error);
@@ -78,7 +84,7 @@ function handleAuthError(error) {
     authStatus.classList.remove('hidden');
 }
 
-// 6. 노션 연동 함수 (OAuth 리디렉션)
+// 6. 노션 연동 함수
 const connectToNotion = () => {
     const authUrl = `https://api.notion.com/v1/oauth/authorize?client_id=${NOTION_CLIENT_ID}&response_type=code&owner=user&redirect_uri=${encodeURIComponent(NOTION_REDIRECT_URI)}`;
     window.location.href = authUrl;
@@ -108,8 +114,6 @@ const handleNotionCallback = async (user) => {
         } catch (error) {
             console.error("액세스 토큰 처리 실패:", error);
             notionStatus.textContent = `오류: 토큰 처리에 실패했습니다.`;
-            notionStatus.classList.add('text-red-600');
-            notionConnectButton.textContent = '연동 실패, 재시도';
         } finally {
             notionConnectButton.disabled = false;
         }
@@ -122,8 +126,7 @@ const updateNotionUI = (isConnected) => {
         notionConnectButton.textContent = '노션 재연동하기';
         notionConnectButton.classList.add('bg-green-600');
         notionStatus.textContent = '✅ 노션 연동 완료!';
-        notionStatus.classList.remove('hidden', 'text-red-600');
-        notionStatus.classList.add('text-green-600');
+        notionStatus.classList.remove('hidden');
         databaseSection.classList.remove('hidden');
     }
 };
@@ -140,11 +143,10 @@ const checkNotionConnection = async (user) => {
     }
 };
 
-// 10. 백엔드에 데이터베이스 목록 요청 및 UI 업데이트 함수
+// 10. 데이터베이스 목록 로드 함수
 const loadDatabases = async () => {
     databaseSelect.innerHTML = '<option>데이터베이스 목록을 불러오는 중...</option>';
     databaseSelect.disabled = true;
-    startButton.disabled = true;
 
     try {
         const getNotionDatabases = httpsCallable(functions, 'getNotionDatabases');
@@ -152,7 +154,7 @@ const loadDatabases = async () => {
         const { databases } = result.data;
 
         if (databases && databases.length > 0) {
-            databaseSelect.innerHTML = '';
+            databaseSelect.innerHTML = '<option value="">-- 데이터베이스 선택 --</option>';
             databases.forEach(db => {
                 const option = document.createElement('option');
                 option.value = db.id;
@@ -160,7 +162,6 @@ const loadDatabases = async () => {
                 databaseSelect.appendChild(option);
             });
             databaseSelect.disabled = false;
-            startButton.disabled = false;
         } else {
             databaseSelect.innerHTML = '<option>공유된 데이터베이스가 없습니다.</option>';
         }
@@ -171,61 +172,102 @@ const loadDatabases = async () => {
     }
 };
 
-// *** NEW *** 11. 경험치 계산 시작 함수
-const startExperienceCalculation = async () => {
+// *** NEW *** 11. 속성 목록 로드 함수
+const loadProperties = async () => {
+    clearInterval(expUpdateInterval); // 다른 DB 선택 시 자동 업데이트 중지
     const selectedDbId = databaseSelect.value;
-    const propertyName = propertyInput.value.trim();
-
-    if (!propertyName) {
-        alert("경험치로 계산할 속성 이름을 입력해주세요!");
+    if (!selectedDbId) {
+        propertySelect.innerHTML = '<option>먼저 데이터베이스를 선택하세요.</option>';
+        propertySelect.disabled = true;
+        startButton.disabled = true;
         return;
     }
 
-    startButton.textContent = "경험치 계산 중...";
+    propertySelect.innerHTML = '<option>속성 목록 불러오는 중...</option>';
+    propertySelect.disabled = true;
     startButton.disabled = true;
 
     try {
-        const calculateExperience = httpsCallable(functions, 'calculateExperience');
-        const result = await calculateExperience({ databaseId: selectedDbId, propertyName: propertyName });
-        const { totalExp } = result.data;
+        const getDatabaseProperties = httpsCallable(functions, 'getDatabaseProperties');
+        const result = await getDatabaseProperties({ databaseId: selectedDbId });
+        const { properties } = result.data;
 
-        console.log("계산된 총 경험치:", totalExp);
-        expDisplay.textContent = totalExp;
-        // 경험치 바 업데이트 (최대 1000이라고 가정)
-        const expPercentage = Math.min((totalExp / 1000) * 100, 100);
-        expBar.style.width = `${expPercentage}%`;
+        if (properties && properties.length > 0) {
+            propertySelect.innerHTML = '';
+            properties.forEach(propName => {
+                const option = document.createElement('option');
+                option.value = propName;
+                option.textContent = propName;
+                propertySelect.appendChild(option);
+            });
+            propertySelect.disabled = false;
+            startButton.disabled = false;
+        } else {
+            propertySelect.innerHTML = '<option>계산할 숫자 속성이 없습니다.</option>';
+        }
 
     } catch (error) {
-        console.error("경험치 계산 실패:", error);
-        alert(`오류: ${error.message}`);
-    } finally {
-        startButton.textContent = "경험치 계산 시작!";
-        startButton.disabled = false;
+        console.error("속성 목록 로드 실패:", error);
+        propertySelect.innerHTML = `<option>오류: ${error.message}</option>`;
     }
 };
 
+// *** UPDATED *** 12. 경험치 계산 및 자동 업데이트 시작 함수
+const startExperienceCalculation = () => {
+    clearInterval(expUpdateInterval); // 이전 인터벌이 있다면 중지
 
-// 12. 앱 시작 시 인증 상태를 처리하는 핵심 로직
+    const updateExp = async () => {
+        const selectedDbId = databaseSelect.value;
+        const propertyName = propertySelect.value;
+
+        if (!selectedDbId || !propertyName) return;
+
+        startButton.textContent = "경험치 업데이트 중...";
+        startButton.disabled = true;
+
+        try {
+            const calculateExperience = httpsCallable(functions, 'calculateExperience');
+            const result = await calculateExperience({ databaseId: selectedDbId, propertyName: propertyName });
+            const { totalExp } = result.data;
+
+            console.log("계산된 총 경험치:", totalExp);
+            expDisplay.textContent = totalExp;
+            const expPercentage = Math.min((totalExp / 1000) * 100, 100);
+            expBar.style.width = `${expPercentage}%`;
+
+        } catch (error) {
+            console.error("경험치 계산 실패:", error);
+            clearInterval(expUpdateInterval); // 오류 발생 시 자동 업데이트 중지
+            alert(`오류: ${error.message}`);
+        } finally {
+            startButton.textContent = "경험치 자동 업데이트 시작!";
+            startButton.disabled = false;
+        }
+    };
+
+    updateExp(); // 먼저 한 번 즉시 실행
+    expUpdateInterval = setInterval(updateExp, 60000); // 그 후 1분(60000ms)마다 반복
+    alert("경험치 자동 업데이트가 시작되었습니다. 1분마다 갱신됩니다.");
+};
+
+
+// 13. 앱 시작 시 인증 상태를 처리하는 핵심 로직
 try {
     await getRedirectResult(auth);
-
     onAuthStateChanged(auth, (user) => {
         if (user) {
-            // 로그인 UI 업데이트
             welcomeMessage.textContent = `${user.displayName}님, 환영합니다!`;
             authButton.textContent = '로그아웃';
-            authStatus.textContent = `로그인 계정: ${user.email}`;
             notionSection.classList.remove('hidden');
             gameSection.classList.remove('hidden');
             authButton.onclick = logOut;
             notionConnectButton.onclick = connectToNotion;
-            startButton.onclick = startExperienceCalculation; // *** NEW ***
+            databaseSelect.onchange = loadProperties; // *** NEW ***
+            startButton.onclick = startExperienceCalculation;
 
-            // 기능 로직 실행
             handleNotionCallback(user);
             checkNotionConnection(user);
         } else {
-            // 로그아웃 UI 업데이트
             welcomeMessage.textContent = '로그인하여 다마고치를 키워보세요!';
             authButton.textContent = '구글 계정으로 시작하기';
             notionSection.classList.add('hidden');
