@@ -3,7 +3,8 @@ import { initializeApp } from "https://www.gstatic.com/firebasejs/9.22.2/firebas
 import { 
     getAuth, 
     GoogleAuthProvider, 
-    signInWithRedirect, 
+    signInWithRedirect, // 페이지 이동 방식 (대체용)
+    signInWithPopup,    // 팝업 방식 (기본용)
     getRedirectResult,
     signOut,
     onAuthStateChanged,
@@ -48,9 +49,20 @@ const notionConnectButton = document.getElementById('notionConnectButton');
 const notionStatus = document.getElementById('notionStatus');
 const gameSection = document.getElementById('gameSection');
 
-// 5. 로그인/로그아웃 함수 (Redirect 방식)
+// *** UPDATED *** 5. 로그인/로그아웃 함수 (하이브리드 방식)
 const signIn = () => {
-    signInWithRedirect(auth, provider).catch(handleAuthError);
+    // 팝업 로그인을 먼저 시도합니다.
+    signInWithPopup(auth, provider)
+        .catch((error) => {
+            // 팝업이 차단되거나 사용자가 닫은 경우, 페이지 이동 방식으로 전환합니다.
+            if (error.code === 'auth/popup-blocked' || error.code === 'auth/cancelled-popup-request') {
+                console.log("Popup was blocked or closed. Trying redirect method...");
+                signInWithRedirect(auth, provider).catch(handleAuthError);
+            } else {
+                // 그 외 다른 오류는 그대로 처리합니다.
+                handleAuthError(error);
+            }
+        });
 };
 
 const logOut = () => signOut(auth).catch((error) => console.error("로그아웃 실패:", error));
@@ -146,13 +158,11 @@ const checkNotionConnection = async (user) => {
     }
 };
 
-// *** UPDATED ***: 앱 시작 시 인증 상태를 처리하는 핵심 로직
+// 10. 앱 시작 시 인증 상태를 처리하는 핵심 로직
 const main = async () => {
     try {
         await setPersistence(auth, browserLocalPersistence);
 
-        // onAuthStateChanged는 로그인/로그아웃 등 모든 인증 상태 변화를 감지합니다.
-        // 이 함수가 UI 업데이트의 유일한 책임자입니다.
         onAuthStateChanged(auth, (user) => {
             if (user) {
                 // 사용자가 로그인한 경우
@@ -182,8 +192,7 @@ const main = async () => {
             }
         });
 
-        // 페이지가 로드된 후, 리디렉션에서 돌아온 결과가 있는지 확인합니다.
-        // 결과가 있으면 위 onAuthStateChanged가 자동으로 실행됩니다.
+        // 페이지 이동(Redirect) 방식으로 로그인한 후 돌아왔을 때, 그 결과를 처리합니다.
         await getRedirectResult(auth);
 
     } catch (error) {
