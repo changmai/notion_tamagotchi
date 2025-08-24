@@ -26,7 +26,8 @@ const provider = new GoogleAuthProvider();
 
 // 3. Notion OAuth 설정
 const NOTION_CLIENT_ID = "259d872b-594c-4f7f-80c7-9f44c4f74d0d"; // 실제 값으로 변경됨
-const NOTION_REDIRECT_URI = "https://my-notion-tamagotchi-c828b.netlify.app"; // 실제 값으로 변경됨
+// *** UPDATED ***: 사용자가 설정한 영구 주소로 변경합니다.
+const NOTION_REDIRECT_URI = "https://notiontamagotchi.netlify.app"; 
 
 // 4. HTML 요소 가져오기
 const welcomeMessage = document.getElementById('welcomeMessage');
@@ -54,7 +55,7 @@ const connectToNotion = () => {
     window.location.href = authUrl;
 };
 
-// *** UPDATED *** 7. 노션 인증 후 콜백 처리 및 토큰 교환 함수
+// 7. 노션 인증 후 콜백 처리 및 토큰 교환 함수
 const handleNotionCallback = async () => {
     const urlParams = new URLSearchParams(window.location.search);
     const notionCode = urlParams.get('code');
