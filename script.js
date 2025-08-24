@@ -23,7 +23,6 @@ const firebaseConfig = {
   apiKey: "AIzaSyDZZMSJG4sh9Vw-T7pjMztC2swkOg1i8os",
   authDomain: "notion-tamagotchi.firebaseapp.com",
   projectId: "notion-tamagotchi",
-  // *** UPDATED ***: storageBucket 주소 형식을 올바르게 수정했습니다.
   storageBucket: "notion-tamagotchi.appspot.com",
   messagingSenderId: "128399204318",
   appId: "1:128399204318:web:197bf0d12b437b910f474f",
@@ -70,7 +69,8 @@ const connectToNotion = () => {
 };
 
 // 7. 노션 인증 후 콜백 처리 및 토큰 저장 함수
-const handleNotionCallback = async () => {
+const handleNotionCallback = async (user) => {
+    if (!user) return;
     const urlParams = new URLSearchParams(window.location.search);
     const notionCode = urlParams.get('code');
 
@@ -100,14 +100,9 @@ const handleNotionCallback = async () => {
             const tokenData = await response.json();
             console.log("성공적으로 액세스 토큰을 받았습니다:", tokenData);
             
-            const user = auth.currentUser;
-            if (user) {
-                const tokenDocRef = doc(db, "users", user.uid, "notion", "token");
-                await setDoc(tokenDocRef, tokenData);
-                console.log("Firestore에 토큰을 성공적으로 저장했습니다.");
-            } else {
-                throw new Error("사용자 정보가 없어 토큰을 저장할 수 없습니다.");
-            }
+            const tokenDocRef = doc(db, "users", user.uid, "notion", "token");
+            await setDoc(tokenDocRef, tokenData);
+            console.log("Firestore에 토큰을 성공적으로 저장했습니다.");
             
             updateNotionUI(true);
 
@@ -145,25 +140,22 @@ const checkNotionConnection = async (user) => {
 
     if (docSnap.exists()) {
         console.log("저장된 노션 토큰을 찾았습니다:", docSnap.data());
-        updateNotionUI(true); // 토큰이 있으면 UI를 '연동 완료' 상태로 변경
+        updateNotionUI(true);
     } else {
         console.log("저장된 노션 토큰이 없습니다.");
     }
 };
 
-
-// 10. 앱 시작 시 인증 상태를 처리하는 로직
-const initializeAppAuth = async () => {
+// *** UPDATED ***: 앱 시작 시 인증 상태를 처리하는 핵심 로직
+const main = async () => {
     try {
-        // 앱이 시작될 때 가장 먼저 영구 저장소 사용을 설정합니다.
         await setPersistence(auth, browserLocalPersistence);
-        
-        // 리디렉션에서 돌아온 경우 로그인 결과를 처리합니다.
-        await getRedirectResult(auth);
 
-        // 사용자 인증 상태 변화를 감지하여 UI를 업데이트합니다.
+        // onAuthStateChanged는 로그인/로그아웃 등 모든 인증 상태 변화를 감지합니다.
+        // 이 함수가 UI 업데이트의 유일한 책임자입니다.
         onAuthStateChanged(auth, (user) => {
             if (user) {
+                // 사용자가 로그인한 경우
                 welcomeMessage.textContent = `${user.displayName}님, 환영합니다!`;
                 authButton.textContent = '로그아웃';
                 authStatus.textContent = `로그인 계정: ${user.email}`;
@@ -175,9 +167,10 @@ const initializeAppAuth = async () => {
                 authButton.onclick = logOut;
                 notionConnectButton.onclick = connectToNotion;
 
-                handleNotionCallback();
+                handleNotionCallback(user);
                 checkNotionConnection(user);
             } else {
+                // 사용자가 로그아웃한 경우
                 welcomeMessage.textContent = '로그인하여 다마고치를 키워보세요!';
                 authButton.textContent = '구글 계정으로 시작하기';
                 authStatus.classList.add('hidden');
@@ -189,10 +182,14 @@ const initializeAppAuth = async () => {
             }
         });
 
+        // 페이지가 로드된 후, 리디렉션에서 돌아온 결과가 있는지 확인합니다.
+        // 결과가 있으면 위 onAuthStateChanged가 자동으로 실행됩니다.
+        await getRedirectResult(auth);
+
     } catch (error) {
         handleAuthError(error);
     }
 };
 
 // 앱 시작!
-initializeAppAuth();
+main();
