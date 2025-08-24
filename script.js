@@ -46,6 +46,7 @@ const NOTION_REDIRECT_URI = "https://notiontamagotchi.netlify.app";
 const welcomeMessage = document.getElementById('welcomeMessage');
 const authButton = document.getElementById('authButton');
 const authStatus = document.getElementById('authStatus');
+const loadingOverlay = document.getElementById('loadingOverlay');
 const notionSection = document.getElementById('notionSection');
 const notionConnectButton = document.getElementById('notionConnectButton');
 const notionStatus = document.getElementById('notionStatus');
@@ -55,9 +56,10 @@ const propertySelect = document.getElementById('propertySelect');
 const startButton = document.getElementById('startButton');
 const gameSection = document.getElementById('gameSection');
 const tamagotchiImage = document.getElementById('tamagotchiImage');
-const tamagotchiLevel = document.getElementById('tamagotchiLevel'); // 새 요소
+const tamagotchiLevel = document.getElementById('tamagotchiLevel');
 const expDisplay = document.getElementById('expDisplay');
 const expBar = document.getElementById('expBar');
+const autoUpdateStatus = document.getElementById('autoUpdateStatus');
 const embedSection = document.getElementById('embedSection');
 const embedLinkInput = document.getElementById('embedLinkInput');
 const copyLinkButton = document.getElementById('copyLinkButton');
@@ -132,6 +134,7 @@ const updateNotionUI = (isConnected) => {
 // 9. 사용자 데이터 로드
 const loadUserData = async (user) => {
     if (!user) return;
+    loadingOverlay.style.display = 'flex';
     const tokenDocRef = doc(db, "users", user.uid, "notion", "token");
     const tokenSnap = await getDoc(tokenDocRef);
     if (tokenSnap.exists()) {
@@ -144,9 +147,9 @@ const loadUserData = async (user) => {
             databaseSelect.value = selectedDbId;
             await loadProperties();
             propertySelect.value = propertyName;
-            startExperienceCalculation(false);
         }
     }
+    loadingOverlay.style.display = 'none';
 };
 
 // 10. 데이터베이스 및 속성 로드
@@ -215,10 +218,13 @@ const listenToTamagotchiState = (user) => {
     const stateDocRef = doc(db, "users", user.uid, "tamagotchi", "state");
     tamagotchiStateUnsubscribe = onSnapshot(stateDocRef, (docSnap) => {
         if (docSnap.exists()) {
+            console.log("Firestore에서 실시간 업데이트를 감지했습니다!");
             const { totalExp } = docSnap.data();
             updateTamagotchiVisuals(totalExp);
+            autoUpdateStatus.textContent = "1분마다 자동 업데이트 활성화 ✅";
         } else {
             updateTamagotchiVisuals(0);
+            autoUpdateStatus.textContent = "";
         }
     });
 };
@@ -251,7 +257,7 @@ const startExperienceCalculation = async (showAlert = true) => {
     }
 };
 
-// *** NEW *** 13. 다마고치 시각화 업데이트 (10단계 로직)
+// 13. 다마고치 시각화 업데이트
 const updateTamagotchiVisuals = (exp) => {
     let level = 1, levelName = "알", maxExp = 100, color = "#A0AEC0";
 
@@ -344,6 +350,7 @@ const mainApp = async () => {
                 embedSection.classList.add('hidden');
                 notionSection.classList.add('hidden');
                 databaseSection.classList.add('hidden');
+                autoUpdateStatus.textContent = "";
             }
         });
 
