@@ -130,25 +130,46 @@ const updateNotionUI = (isConnected) => {
     }
 };
 
-// 9. 사용자 데이터 로드
+// *** UPDATED *** 9. 사용자 데이터 로드 및 자동 업데이트 시작
 const loadUserData = async (user) => {
     if (!user) return;
     loadingOverlay.style.display = 'flex';
-    const tokenDocRef = doc(db, "users", user.uid, "notion", "token");
-    const tokenSnap = await getDoc(tokenDocRef);
-    if (tokenSnap.exists()) {
-        updateNotionUI(true);
-        await loadDatabases();
-        const settingsDocRef = doc(db, "users", user.uid, "notion", "settings");
-        const settingsSnap = await getDoc(settingsDocRef);
-        if (settingsSnap.exists()) {
-            const { selectedDbId, propertyName } = settingsSnap.data();
-            databaseSelect.value = selectedDbId;
-            await loadProperties();
-            propertySelect.value = propertyName;
+
+    try {
+        const tokenDocRef = doc(db, "users", user.uid, "notion", "token");
+        const tokenSnap = await getDoc(tokenDocRef);
+
+        if (tokenSnap.exists()) {
+            updateNotionUI(true);
+            await loadDatabases(); // 데이터베이스 목록 로드
+
+            const settingsDocRef = doc(db, "users", user.uid, "notion", "settings");
+            const settingsSnap = await getDoc(settingsDocRef);
+
+            if (settingsSnap.exists()) {
+                console.log("저장된 설정을 찾았습니다. UI를 업데이트하고 초기 경험치 계산을 시작합니다.");
+                const { selectedDbId, propertyName } = settingsSnap.data();
+                
+                databaseSelect.value = selectedDbId;
+                await loadProperties();
+                propertySelect.value = propertyName;
+
+                // 저장된 설정이 유효하면, 즉시 경험치 업데이트를 한 번 요청합니다.
+                // 이 요청이 성공하면, 실시간 리스너가 첫 데이터를 받아 화면을 그리고,
+                // 이후 서버의 자동 업데이트를 계속 감지하게 됩니다.
+                if (databaseSelect.value && propertySelect.value) {
+                    console.log("저장된 설정으로 즉시 업데이트를 요청합니다.");
+                    const calculateExperience = httpsCallable(functions, 'calculateExperience');
+                    await calculateExperience();
+                }
+            }
         }
+    } catch (error) {
+        console.error("사용자 데이터 로드 중 오류 발생:", error);
+        alert("사용자 정보를 불러오는 데 실패했습니다.");
+    } finally {
+        loadingOverlay.style.display = 'none';
     }
-    loadingOverlay.style.display = 'none';
 };
 
 // 10. 데이터베이스 및 속성 로드
@@ -311,17 +332,14 @@ function fallbackCopyTextToClipboard(text) {
     document.body.removeChild(textArea);
 }
 
-// *** UPDATED *** 15. 앱 시작 로직 (가장 안정적인 방식)
+// 15. 앱 시작 로직
 const mainApp = async () => {
     try {
-        // 앱이 시작될 때 가장 먼저 영구 저장소 사용을 설정합니다.
         await setPersistence(auth, browserLocalPersistence);
         
-        // onAuthStateChanged는 로그인/로그아웃 등 모든 인증 상태 변화를 감지하는
-        // 유일하고 가장 신뢰할 수 있는 방법입니다.
         onAuthStateChanged(auth, (user) => {
             if (user) {
-                // 사용자가 로그인한 경우
+                // 로그인 UI 업데이트
                 gameSection.classList.remove('hidden');
                 embedSection.classList.remove('hidden');
                 notionSection.classList.remove('hidden');
@@ -343,7 +361,7 @@ const mainApp = async () => {
                 embedLinkInput.value = imageUrl;
 
             } else {
-                // 사용자가 로그아웃한 경우
+                // 로그아웃 UI 업데이트
                 welcomeMessage.textContent = '로그인하여 다마고치를 키워보세요!';
                 authButton.textContent = '구글 계정으로 시작하기';
                 authStatus.classList.add('hidden');
@@ -355,8 +373,6 @@ const mainApp = async () => {
             }
         });
 
-        // 페이지 이동(Redirect) 방식으로 로그인한 후 돌아왔을 때, 그 결과를 처리합니다.
-        // 이 과정이 끝나면 위의 onAuthStateChanged가 자동으로 실행됩니다.
         await getRedirectResult(auth);
 
     } catch (error) {
