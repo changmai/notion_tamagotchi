@@ -4,7 +4,9 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>노션 다마고치</title>
+    <!-- Tailwind CSS CDN -->
     <script src="https://cdn.tailwindcss.com"></script>
+    <!-- 다마고치 애니메이션을 위한 CSS -->
     <style>
         @keyframes breathing {
             0%, 100% { transform: scale(1); }
@@ -13,29 +15,53 @@
         .breathing-animation {
             animation: breathing 3s ease-in-out infinite;
         }
-        @keyframes spin {
-            to { transform: rotate(360deg); }
-        }
-        .spinner {
-            animation: spin 1s linear infinite;
-        }
     </style>
 </head>
 <body class="bg-gray-100 flex items-center justify-center min-h-screen font-sans">
     
+    <!-- 앱 전체 컨테이너 -->
     <div class="bg-white p-8 rounded-xl shadow-lg max-w-sm w-full text-center transition-all duration-500">
         
         <h1 class="text-3xl font-bold mb-4 text-gray-800">나의 노션 다마고치</h1>
         <p id="welcomeMessage" class="text-gray-500 mb-6">로그인하여 다마고치를 키워보세요!</p>
         
+        <!-- 1. 로그인/로그아웃 버튼 -->
         <button id="authButton" class="bg-blue-500 hover:bg-blue-600 text-white font-bold py-2 px-6 rounded-lg transition duration-300 ease-in-out w-full">
             구글 계정으로 시작하기
         </button>
+        
+        <!-- 2. 로그인 상태 메시지 -->
         <p id="authStatus" class="mt-4 text-sm text-gray-500 hidden"></p>
+        
+        <!-- 3. 노션 연동 섹션 -->
+        <div id="notionSection" class="mt-6 hidden">
+            <h2 class="text-xl font-semibold text-gray-700">STEP 1. 노션 연동</h2>
+            <button id="notionConnectButton" class="bg-gray-800 hover:bg-gray-900 text-white font-bold py-2 px-4 rounded-lg mt-2 transition duration-300 ease-in-out w-full">
+                노션 연동하기
+            </button>
+            <p id="notionStatus" class="mt-2 text-sm text-green-600 font-semibold hidden">✅ 노션 연동 완료!</p>
+        </div>
 
-        <!-- 다마고치 화면 -->
+        <!-- 4. 데이터베이스 선택 섹션 -->
+        <div id="databaseSection" class="mt-6 hidden">
+            <h2 class="text-xl font-semibold text-gray-700">STEP 2. 경험치 설정</h2>
+            <p class="text-sm text-gray-500 mt-1 mb-2">경험치로 사용할 데이터베이스와 속성을 선택하세요.</p>
+            <select id="databaseSelect" class="w-full p-2 border border-gray-300 rounded-lg bg-white mb-2">
+                <option>데이터베이스 목록을 불러오는 중...</option>
+            </select>
+            <select id="propertySelect" class="w-full p-2 border border-gray-300 rounded-lg bg-white">
+                <option>먼저 데이터베이스를 선택하세요.</option>
+            </select>
+            
+            <button id="startButton" class="bg-green-500 hover:bg-green-600 text-white font-bold py-2 px-4 rounded-lg mt-4 w-full">
+                경험치 자동 업데이트 시작!
+            </button>
+        </div>
+        
+        <hr class="my-6 border-t border-gray-200" />
+        
+        <!-- 5. 다마고치 게임 화면 -->
         <div id="gameSection" class="hidden">
-            <hr class="my-6 border-t border-gray-200" />
             <h2 class="text-2xl font-semibold text-gray-700">나의 다마고치</h2>
             
             <div id="tamagotchiContainer" class="mt-4 p-4 bg-gray-100 rounded-lg min-h-[180px] flex items-center justify-center">
@@ -50,40 +76,8 @@
                 </div>
                 <p id="expDisplay" class="text-xl font-bold text-green-600 mt-1">0</p>
             </div>
-        </div>
 
-        <!-- 설정 영역 -->
-        <div id="settingsContainer" class="relative">
-            <!-- 로딩 오버레이 -->
-            <div id="loadingOverlay" class="absolute inset-0 bg-white bg-opacity-80 flex-col items-center justify-center rounded-lg hidden z-10">
-                <div class="spinner w-8 h-8 border-4 border-blue-500 border-t-transparent rounded-full"></div>
-                <p class="mt-2 text-gray-600 font-semibold">설정 불러오는 중...</p>
-            </div>
-
-            <div id="notionSection" class="mt-6 hidden">
-                <hr class="my-6 border-t border-gray-200" />
-                <h2 class="text-xl font-semibold text-gray-700">STEP 1. 노션 연동</h2>
-                <button id="notionConnectButton" class="bg-gray-800 hover:bg-gray-900 text-white font-bold py-2 px-4 rounded-lg mt-2 transition duration-300 ease-in-out w-full">
-                    노션 연동하기
-                </button>
-                <p id="notionStatus" class="mt-2 text-sm text-green-600 font-semibold hidden">✅ 노션 연동 완료!</p>
-            </div>
-
-            <div id="databaseSection" class="mt-6 hidden">
-                <h2 class="text-xl font-semibold text-gray-700">STEP 2. 경험치 설정</h2>
-                <p class="text-sm text-gray-500 mt-1 mb-2">경험치로 사용할 데이터베이스와 속성을 선택하세요.</p>
-                <select id="databaseSelect" class="w-full p-2 border border-gray-300 rounded-lg bg-white mb-2">
-                    <option>데이터베이스 목록을 불러오는 중...</option>
-                </select>
-                <select id="propertySelect" class="w-full p-2 border border-gray-300 rounded-lg bg-white">
-                    <option>먼저 데이터베이스를 선택하세요.</option>
-                </select>
-                
-                <button id="startButton" class="bg-green-500 hover:bg-green-600 text-white font-bold py-2 px-4 rounded-lg mt-4 w-full">
-                    설정 저장 및 업데이트 시작
-                </button>
-            </div>
-            
+            <!-- *** NEW *** 6. 노션 임베딩 링크 섹션 -->
             <div id="embedSection" class="mt-6 text-left hidden">
                 <label for="embedLinkInput" class="font-semibold text-gray-700">노션 임베딩 링크</label>
                 <div class="flex mt-1">
