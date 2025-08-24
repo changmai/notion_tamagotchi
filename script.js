@@ -10,10 +10,10 @@ import {
 
 // 1. Firebase 설정
 const firebaseConfig = {
-  apiKey: "AIzaSyDZZMSJG4shVw-T7pjMztC2swkOg1i8os",
+  apiKey: "AIzaSyDZZMSJG4sh9Vw-T7pjMztC2swkOg1i8os",
   authDomain: "notion-tamagotchi.firebaseapp.com",
   projectId: "notion-tamagotchi",
-  storageBucket: "notion-tamagotchi.appspot.com",
+  storageBucket: "notion-tamagotchi.firebasestorage.app",
   messagingSenderId: "128399204318",
   appId: "1:128399204318:web:197bf0d12b437b910f474f",
   measurementId: "G-02V3VDK4Q6"
@@ -140,3 +140,4 @@ onAuthStateChanged(auth, (user) => {
         authButton.onclick = signIn;
     }
 });
+
