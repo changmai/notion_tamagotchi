@@ -35,15 +35,17 @@
         <!-- 4. 데이터베이스 선택 섹션 -->
         <div id="databaseSection" class="mt-6 hidden">
             <h2 class="text-xl font-semibold text-gray-700">STEP 2. 경험치 설정</h2>
-            <p class="text-sm text-gray-500 mt-1 mb-2">경험치로 사용할 데이터베이스를 선택하세요.</p>
+            <p class="text-sm text-gray-500 mt-1 mb-2">경험치로 사용할 데이터베이스와 속성을 선택하세요.</p>
             <select id="databaseSelect" class="w-full p-2 border border-gray-300 rounded-lg bg-white mb-2">
                 <option>데이터베이스 목록을 불러오는 중...</option>
             </select>
-            <!-- *** NEW ***: 속성 이름 입력 필드 추가 -->
-            <input type="text" id="propertyInput" placeholder="경험치로 계산할 속성 이름 (예: 경험치)" class="w-full p-2 border border-gray-300 rounded-lg">
+            <!-- *** UPDATED ***: 속성 이름 입력 필드를 드롭다운 메뉴로 변경 -->
+            <select id="propertySelect" class="w-full p-2 border border-gray-300 rounded-lg bg-white">
+                <option>먼저 데이터베이스를 선택하세요.</option>
+            </select>
             
             <button id="startButton" class="bg-green-500 hover:bg-green-600 text-white font-bold py-2 px-4 rounded-lg mt-4 w-full">
-                경험치 계산 시작!
+                경험치 자동 업데이트 시작!
             </button>
         </div>
         
