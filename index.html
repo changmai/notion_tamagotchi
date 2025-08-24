@@ -31,10 +31,22 @@
             </button>
             <p id="notionStatus" class="mt-2 text-sm text-green-600 font-semibold hidden">✅ 노션 연동 완료!</p>
         </div>
+
+        <!-- *** NEW *** 4. 데이터베이스 선택 섹션 (노션 연동 후 보임) -->
+        <div id="databaseSection" class="mt-6 hidden">
+            <h2 class="text-xl font-semibold text-gray-700">STEP 2. 데이터베이스 선택</h2>
+            <p class="text-sm text-gray-500 mt-1 mb-2">경험치로 사용할 데이터베이스를 선택하세요.</p>
+            <select id="databaseSelect" class="w-full p-2 border border-gray-300 rounded-lg bg-white">
+                <option>데이터베이스 목록을 불러오는 중...</option>
+            </select>
+            <button id="startButton" class="bg-green-500 hover:bg-green-600 text-white font-bold py-2 px-4 rounded-lg mt-4 w-full">
+                경험치 계산 시작!
+            </button>
+        </div>
         
         <hr class="my-6 border-t border-gray-200" />
         
-        <!-- 4. 다마고치 게임 화면 -->
+        <!-- 5. 다마고치 게임 화면 -->
         <div id="gameSection" class="hidden">
             <h2 class="text-2xl font-semibold text-gray-700">나의 다마고치</h2>
             
