@@ -26,9 +26,9 @@ const provider = new GoogleAuthProvider();
 
 // 3. Notion OAuth 설정
 // !!! 중요: "YOUR_NOTION_CLIENT_ID"를 실제 값으로 꼭 변경해야 합니다. !!!
-const NOTION_CLIENT_ID = "YOUR_NOTION_CLIENT_ID"; 
+const NOTION_CLIENT_ID = "259d872b-594c-80c7-9fd9-0037bc5be4d1"; 
 // *** UPDATED ***: 동적 주소 대신 Netlify의 고정 주소를 사용합니다.
-const NOTION_REDIRECT_URI = "https://poetic-nasturtium-7d3765.netlify.app";
+const NOTION_REDIRECT_URI = "https://notiontamagotchi.netlify.app";
 
 // *** NEW *** 설정 값 확인 로직 추가
 if (NOTION_CLIENT_ID === "YOUR_NOTION_CLIENT_ID") {
@@ -133,3 +133,4 @@ onAuthStateChanged(auth, (user) => {
         authButton.onclick = signIn;
     }
 });
+
