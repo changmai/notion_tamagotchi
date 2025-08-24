@@ -1,4 +1,4 @@
-// Firebase SDK에서 필요한 함수들을 가져옵니다. (모듈 방식)
+// Firebase SDK에서 필요한 함수들을 가져옵니다.
 import { initializeApp } from "https://www.gstatic.com/firebasejs/9.22.2/firebase-app.js";
 import { 
     getAuth, 
@@ -7,13 +7,19 @@ import {
     signOut,
     onAuthStateChanged 
 } from "https://www.gstatic.com/firebasejs/9.22.2/firebase-auth.js";
+// *** NEW ***: Firestore DB를 사용하기 위한 함수들을 가져옵니다.
+import { 
+    getFirestore, 
+    doc, 
+    setDoc 
+} from "https://www.gstatic.com/firebasejs/9.22.2/firebase-firestore.js";
 
 // 1. Firebase 설정
 const firebaseConfig = {
-  apiKey: "AIzaSyDZZMSJG4sh9Vw-T7pjMztC2swkOg1i8os",
+  apiKey: "YOUR_API_KEY", // 실제 값으로 변경해야 합니다.
   authDomain: "notion-tamagotchi.firebaseapp.com",
   projectId: "notion-tamagotchi",
-  storageBucket: "notion-tamagotchi.firebasestorage.app",
+  storageBucket: "notion-tamagotchi.appspot.com",
   messagingSenderId: "128399204318",
   appId: "1:128399204318:web:197bf0d12b437b910f474f",
   measurementId: "G-02V3VDK4Q6"
@@ -23,13 +29,14 @@ const firebaseConfig = {
 const app = initializeApp(firebaseConfig);
 const auth = getAuth(app);
 const provider = new GoogleAuthProvider();
+const db = getFirestore(app); // Firestore 데이터베이스 서비스 초기화
 
 // 3. Notion OAuth 설정
-const NOTION_CLIENT_ID = "259d872b-594c-80c7-9fd9-0037bc5be4d1"; // 실제 값으로 변경됨
-// *** UPDATED ***: 사용자가 설정한 영구 주소로 변경합니다.
+const NOTION_CLIENT_ID = "YOUR_NOTION_CLIENT_ID"; // 실제 값으로 변경해야 합니다.
 const NOTION_REDIRECT_URI = "https://notiontamagotchi.netlify.app"; 
 
 // 4. HTML 요소 가져오기
+// ... (이전과 동일)
 const welcomeMessage = document.getElementById('welcomeMessage');
 const authButton = document.getElementById('authButton');
 const authStatus = document.getElementById('authStatus');
@@ -38,7 +45,9 @@ const notionConnectButton = document.getElementById('notionConnectButton');
 const notionStatus = document.getElementById('notionStatus');
 const gameSection = document.getElementById('gameSection');
 
+
 // 5. 로그인/로그아웃 함수
+// ... (이전과 동일)
 const signIn = () => signInWithPopup(auth, provider).catch(handleAuthError);
 const logOut = () => signOut(auth).catch((error) => console.error("로그아웃 실패:", error));
 
@@ -48,14 +57,17 @@ function handleAuthError(error) {
     authStatus.classList.remove('hidden');
 }
 
+
 // 6. 노션 연동 함수 (OAuth 리디렉션)
+// ... (이전과 동일)
 const connectToNotion = () => {
     console.log("노션 인증 페이지로 이동합니다...");
     const authUrl = `https://api.notion.com/v1/oauth/authorize?client_id=${NOTION_CLIENT_ID}&response_type=code&owner=user&redirect_uri=${encodeURIComponent(NOTION_REDIRECT_URI)}`;
     window.location.href = authUrl;
 };
 
-// 7. 노션 인증 후 콜백 처리 및 토큰 교환 함수
+
+// *** UPDATED *** 7. 노션 인증 후 콜백 처리 및 토큰 저장 함수
 const handleNotionCallback = async () => {
     const urlParams = new URLSearchParams(window.location.search);
     const notionCode = urlParams.get('code');
@@ -65,11 +77,9 @@ const handleNotionCallback = async () => {
         notionConnectButton.textContent = '토큰 교환 중...';
         notionConnectButton.disabled = true;
 
-        // URL에서 코드를 제거하여 새로고침 시 재실행되지 않도록 함
         window.history.replaceState({}, document.title, window.location.pathname);
 
         try {
-            // 백엔드(Firebase Function)에 토큰 교환 요청
             const functionUrl = "https://asia-northeast3-notion-tamagotchi.cloudfunctions.net/exchangeCodeForToken";
             const response = await fetch(functionUrl, {
                 method: 'POST',
@@ -85,16 +95,25 @@ const handleNotionCallback = async () => {
                 throw new Error(`서버 오류: ${response.status} ${errorText}`);
             }
 
-            const data = await response.json();
-            console.log("성공적으로 액세스 토큰을 받았습니다:", data);
+            const tokenData = await response.json();
+            console.log("성공적으로 액세스 토큰을 받았습니다:", tokenData);
             
-            // TODO: 받은 access_token을 안전하게 저장해야 합니다. (다음 단계)
+            // *** NEW ***: 받은 액세스 토큰을 Firestore에 저장합니다.
+            const user = auth.currentUser;
+            if (user) {
+                // 저장 경로: /users/{사용자ID}/notion/token
+                const tokenDocRef = doc(db, "users", user.uid, "notion", "token");
+                await setDoc(tokenDocRef, tokenData);
+                console.log("Firestore에 토큰을 성공적으로 저장했습니다.");
+            } else {
+                throw new Error("사용자 정보가 없어 토큰을 저장할 수 없습니다.");
+            }
             
             updateNotionUI(true);
 
         } catch (error) {
-            console.error("액세스 토큰 교환 실패:", error);
-            notionStatus.textContent = `오류: 토큰 교환에 실패했습니다.`;
+            console.error("액세스 토큰 처리 실패:", error);
+            notionStatus.textContent = `오류: 토큰 처리에 실패했습니다.`;
             notionStatus.classList.remove('hidden', 'text-green-600');
             notionStatus.classList.add('text-red-600');
             notionConnectButton.textContent = '연동 실패, 재시도';
@@ -105,6 +124,7 @@ const handleNotionCallback = async () => {
 };
 
 // 8. 노션 연동 상태 UI 업데이트 함수
+// ... (이전과 동일)
 const updateNotionUI = (isConnected) => {
     if (isConnected) {
         notionConnectButton.textContent = '노션 재연동하기';
@@ -114,7 +134,9 @@ const updateNotionUI = (isConnected) => {
     }
 };
 
+
 // 9. 사용자 인증 상태 변화 감지
+// ... (이전과 동일)
 onAuthStateChanged(auth, (user) => {
     if (user) {
         welcomeMessage.textContent = `${user.displayName}님, 환영합니다!`;
@@ -140,5 +162,3 @@ onAuthStateChanged(auth, (user) => {
         authButton.onclick = signIn;
     }
 });
-
-
