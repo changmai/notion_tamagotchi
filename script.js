@@ -154,7 +154,7 @@ const loadUserData = async (user) => {
     loadingOverlay.style.display = 'none';
 };
 
-// *** UPDATED *** 10. 데이터베이스 및 속성 로드 (전체 코드 복원)
+// 10. 데이터베이스 및 속성 로드
 const loadDatabases = async () => {
     databaseSelect.innerHTML = '<option>데이터베이스 목록을 불러오는 중...</option>';
     databaseSelect.disabled = true;
@@ -220,6 +220,7 @@ const listenToTamagotchiState = (user) => {
     const stateDocRef = doc(db, "users", user.uid, "tamagotchi", "state");
     tamagotchiStateUnsubscribe = onSnapshot(stateDocRef, (docSnap) => {
         if (docSnap.exists()) {
+            console.log("Firestore에서 실시간 업데이트를 감지했습니다!"); // 디버깅용 로그
             const { totalExp, daysOfStagnation = 0 } = docSnap.data();
             updateTamagotchiVisuals(totalExp, daysOfStagnation);
         }
@@ -279,54 +280,37 @@ const updateTamagotchiVisuals = (exp, daysOfStagnation) => {
     expBar.style.width = `${Math.min((exp / maxExp) * 100, 100)}%`;
 };
 
-// *** UPDATED *** 14. 링크 복사 함수 (전체 코드 복원 및 개선)
+// 14. 링크 복사 함수
 const copyEmbedLink = () => {
     const linkToCopy = embedLinkInput.value;
-    
-    // navigator.clipboard API를 우선적으로 사용 (더 최신 방식)
     if (navigator.clipboard && navigator.clipboard.writeText) {
         navigator.clipboard.writeText(linkToCopy).then(() => {
             copyStatus.textContent = "✅ 복사 완료!";
             setTimeout(() => { copyStatus.textContent = ""; }, 2000);
-        }).catch(err => {
-            console.error('클립보드 복사 실패 (navigator):', err);
-            // 실패 시 대체 방법 실행
-            fallbackCopyTextToClipboard(linkToCopy);
-        });
+        }).catch(() => fallbackCopyTextToClipboard(linkToCopy));
     } else {
-        // navigator.clipboard를 지원하지 않는 경우 대체 방법 실행
         fallbackCopyTextToClipboard(linkToCopy);
     }
 };
 
-// navigator.clipboard 실패 시를 위한 대체 복사 함수
 function fallbackCopyTextToClipboard(text) {
     const textArea = document.createElement("textarea");
     textArea.value = text;
-    
-    // 화면에 보이지 않도록 설정
     textArea.style.top = "0";
     textArea.style.left = "0";
     textArea.style.position = "fixed";
-
     document.body.appendChild(textArea);
     textArea.focus();
     textArea.select();
-
     try {
-        const successful = document.execCommand('copy');
-        if (successful) {
-            copyStatus.textContent = "✅ 복사 완료! (대체 방식)";
+        if (document.execCommand('copy')) {
+            copyStatus.textContent = "✅ 복사 완료!";
             setTimeout(() => { copyStatus.textContent = ""; }, 2000);
-        } else {
-            throw new Error('Copy command was not successful');
         }
     } catch (err) {
-        console.error('클립보드 복사 실패 (fallback):', err);
         copyStatus.textContent = "복사 실패. 직접 복사해주세요.";
         copyStatus.classList.add('text-red-600');
     }
-
     document.body.removeChild(textArea);
 }
 
