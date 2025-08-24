@@ -219,18 +219,18 @@ const listenToTamagotchiState = (user) => {
     tamagotchiStateUnsubscribe = onSnapshot(stateDocRef, (docSnap) => {
         if (docSnap.exists()) {
             console.log("Firestore에서 실시간 업데이트를 감지했습니다!");
-            const { totalExp } = docSnap.data();
-            updateTamagotchiVisuals(totalExp);
+            const { totalExp, daysOfStagnation = 0 } = docSnap.data();
+            updateTamagotchiVisuals(totalExp, daysOfStagnation);
             autoUpdateStatus.textContent = "1분마다 자동 업데이트 활성화 ✅";
         } else {
-            updateTamagotchiVisuals(0);
-            autoUpdateStatus.textContent = "";
+            updateTamagotchiVisuals(0, 0);
+            autoUpdateStatus.textContent = "설정을 저장하면 자동 업데이트가 시작됩니다.";
         }
     });
 };
 
 // 12. 경험치 계산 시작
-const startExperienceCalculation = async (showAlert = true) => {
+const startExperienceCalculation = async () => {
     const selectedDbId = databaseSelect.value;
     const propertyName = propertySelect.value;
     if (!selectedDbId || !propertyName) {
@@ -246,9 +246,7 @@ const startExperienceCalculation = async (showAlert = true) => {
     try {
         const calculateExperience = httpsCallable(functions, 'calculateExperience');
         await calculateExperience();
-        if (showAlert) {
-            alert("설정이 저장되었고, 즉시 경험치를 업데이트했습니다. 이제 서버에서 자동으로 업데이트됩니다.");
-        }
+        alert("설정이 저장되었고, 즉시 경험치를 업데이트했습니다. 이제 서버에서 자동으로 업데이트됩니다.");
     } catch (error) {
         alert(`오류: ${error.message}`);
     } finally {
@@ -258,7 +256,7 @@ const startExperienceCalculation = async (showAlert = true) => {
 };
 
 // 13. 다마고치 시각화 업데이트
-const updateTamagotchiVisuals = (exp) => {
+const updateTamagotchiVisuals = (exp, daysOfStagnation) => {
     let level = 1, levelName = "알", maxExp = 100, color = "#A0AEC0";
 
     if (exp >= 5000) { level = 10; levelName = "전설"; maxExp = 10000; color = "#F59E0B"; }
@@ -271,12 +269,17 @@ const updateTamagotchiVisuals = (exp) => {
     else if (exp >= 100) { level = 3; levelName = "유아기"; maxExp = 400; color = "#14B8A6"; }
     else if (exp > 0) { level = 2; levelName = "새싹"; maxExp = 100; color = "#84CC16"; }
     
-    tamagotchiImage.src = `https://placehold.co/150x150/${color.substring(1)}/FFF?text=Lvl${level}.gif`;
+    if (daysOfStagnation >= 10) {
+        levelName = "RIP"; color = '#1F2937';
+    } else if (daysOfStagnation >= 1) {
+        levelName += " (아픔)"; color = '#78716C';
+    }
+
+    tamagotchiImage.src = `https://placehold.co/150x150/${color.substring(1)}/FFF?text=${levelName}`;
     tamagotchiLevel.textContent = `Level ${level}: ${levelName}`;
     expDisplay.textContent = exp;
     expBar.style.width = `${Math.min((exp / maxExp) * 100, 100)}%`;
 };
-
 
 // 14. 링크 복사 함수
 const copyEmbedLink = () => {
