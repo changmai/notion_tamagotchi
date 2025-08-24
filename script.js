@@ -49,20 +49,22 @@ const notionConnectButton = document.getElementById('notionConnectButton');
 const notionStatus = document.getElementById('notionStatus');
 const gameSection = document.getElementById('gameSection');
 
-// *** UPDATED *** 5. 로그인/로그아웃 함수 (하이브리드 방식)
-const signIn = () => {
-    // 팝업 로그인을 먼저 시도합니다.
-    signInWithPopup(auth, provider)
-        .catch((error) => {
-            // 팝업이 차단되거나 사용자가 닫은 경우, 페이지 이동 방식으로 전환합니다.
-            if (error.code === 'auth/popup-blocked' || error.code === 'auth/cancelled-popup-request') {
-                console.log("Popup was blocked or closed. Trying redirect method...");
-                signInWithRedirect(auth, provider).catch(handleAuthError);
-            } else {
-                // 그 외 다른 오류는 그대로 처리합니다.
-                handleAuthError(error);
-            }
-        });
+// 5. 로그인/로그아웃 함수 (하이브리드 방식)
+const signIn = async () => {
+    try {
+        await setPersistence(auth, browserLocalPersistence);
+        // 팝업 로그인을 먼저 시도합니다.
+        await signInWithPopup(auth, provider);
+    } catch (error) {
+        // 팝업이 차단되거나 사용자가 닫은 경우, 페이지 이동 방식으로 전환합니다.
+        if (error.code === 'auth/popup-blocked' || error.code === 'auth/cancelled-popup-request') {
+            console.log("Popup was blocked or closed. Trying redirect method...");
+            signInWithRedirect(auth, provider).catch(handleAuthError);
+        } else {
+            // 그 외 다른 오류는 그대로 처리합니다.
+            handleAuthError(error);
+        }
+    }
 };
 
 const logOut = () => signOut(auth).catch((error) => console.error("로그아웃 실패:", error));
@@ -158,47 +160,42 @@ const checkNotionConnection = async (user) => {
     }
 };
 
-// 10. 앱 시작 시 인증 상태를 처리하는 핵심 로직
-const main = async () => {
-    try {
-        await setPersistence(auth, browserLocalPersistence);
+// *** UPDATED *** 10. 앱 시작 시 인증 상태를 처리하는 핵심 로직
+try {
+    // 페이지 이동(Redirect) 방식으로 로그인한 후 돌아왔을 때, 그 결과를 먼저 확인합니다.
+    // 결과가 있으면 user 정보가 반환되고, 없으면 null이 반환됩니다.
+    // 이 과정이 onAuthStateChanged보다 먼저 실행되어야 합니다.
+    await getRedirectResult(auth);
 
-        onAuthStateChanged(auth, (user) => {
-            if (user) {
-                // 사용자가 로그인한 경우
-                welcomeMessage.textContent = `${user.displayName}님, 환영합니다!`;
-                authButton.textContent = '로그아웃';
-                authStatus.textContent = `로그인 계정: ${user.email}`;
-                authStatus.classList.remove('hidden');
-                
-                notionSection.classList.remove('hidden');
-                gameSection.classList.remove('hidden');
-                
-                authButton.onclick = logOut;
-                notionConnectButton.onclick = connectToNotion;
+    // 로그인/로그아웃 등 모든 인증 상태 변화를 감지하여 UI를 업데이트합니다.
+    onAuthStateChanged(auth, (user) => {
+        if (user) {
+            // 사용자가 로그인한 경우
+            welcomeMessage.textContent = `${user.displayName}님, 환영합니다!`;
+            authButton.textContent = '로그아웃';
+            authStatus.textContent = `로그인 계정: ${user.email}`;
+            authStatus.classList.remove('hidden');
+            
+            notionSection.classList.remove('hidden');
+            gameSection.classList.remove('hidden');
+            
+            authButton.onclick = logOut;
+            notionConnectButton.onclick = connectToNotion;
 
-                handleNotionCallback(user);
-                checkNotionConnection(user);
-            } else {
-                // 사용자가 로그아웃한 경우
-                welcomeMessage.textContent = '로그인하여 다마고치를 키워보세요!';
-                authButton.textContent = '구글 계정으로 시작하기';
-                authStatus.classList.add('hidden');
-                
-                notionSection.classList.add('hidden');
-                gameSection.classList.add('hidden');
-                
-                authButton.onclick = signIn;
-            }
-        });
-
-        // 페이지 이동(Redirect) 방식으로 로그인한 후 돌아왔을 때, 그 결과를 처리합니다.
-        await getRedirectResult(auth);
-
-    } catch (error) {
-        handleAuthError(error);
-    }
-};
-
-// 앱 시작!
-main();
+            handleNotionCallback(user);
+            checkNotionConnection(user);
+        } else {
+            // 사용자가 로그아웃한 경우
+            welcomeMessage.textContent = '로그인하여 다마고치를 키워보세요!';
+            authButton.textContent = '구글 계정으로 시작하기';
+            authStatus.classList.add('hidden');
+            
+            notionSection.classList.add('hidden');
+            gameSection.classList.add('hidden');
+            
+            authButton.onclick = signIn;
+        }
+    });
+} catch (error) {
+    handleAuthError(error);
+}
