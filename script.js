@@ -50,13 +50,13 @@ const notionConnectButton = document.getElementById('notionConnectButton');
 const notionStatus = document.getElementById('notionStatus');
 const databaseSection = document.getElementById('databaseSection');
 const databaseSelect = document.getElementById('databaseSelect');
-const propertySelect = document.getElementById('propertySelect'); // 새 요소
+const propertySelect = document.getElementById('propertySelect');
 const startButton = document.getElementById('startButton');
 const gameSection = document.getElementById('gameSection');
 const expDisplay = document.getElementById('expDisplay');
 const expBar = document.getElementById('expBar');
 
-// *** NEW ***: 경험치 자동 업데이트를 위한 변수
+// 경험치 자동 업데이트를 위한 변수
 let expUpdateInterval = null;
 
 // 5. 로그인/로그아웃 함수 (하이브리드 방식)
@@ -131,15 +131,39 @@ const updateNotionUI = (isConnected) => {
     }
 };
 
-// 9. Firestore에서 노션 토큰 확인하는 함수
-const checkNotionConnection = async (user) => {
+// *** UPDATED *** 9. Firestore에서 사용자 데이터(토큰 및 설정) 로드 함수
+const loadUserData = async (user) => {
     if (!user) return;
-    const tokenDocRef = doc(db, "users", user.uid, "notion", "token");
-    const docSnap = await getDoc(tokenDocRef);
 
-    if (docSnap.exists()) {
-        updateNotionUI(true);
-        loadDatabases();
+    // 1. Notion 토큰 확인
+    const tokenDocRef = doc(db, "users", user.uid, "notion", "token");
+    const tokenSnap = await getDoc(tokenDocRef);
+
+    if (tokenSnap.exists()) {
+        console.log("저장된 노션 토큰을 찾았습니다.");
+        updateNotionUI(true); // UI를 '연동 완료' 상태로 변경
+        await loadDatabases(); // 데이터베이스 목록 로드
+
+        // 2. 저장된 설정 확인
+        const settingsDocRef = doc(db, "users", user.uid, "notion", "settings");
+        const settingsSnap = await getDoc(settingsDocRef);
+
+        if (settingsSnap.exists()) {
+            console.log("저장된 설정을 찾았습니다:", settingsSnap.data());
+            const { selectedDbId, propertyName } = settingsSnap.data();
+
+            // 3. UI에 저장된 설정 적용
+            databaseSelect.value = selectedDbId;
+            await loadProperties(); // 저장된 DB의 속성 목록 로드
+            propertySelect.value = propertyName;
+
+            // 4. 자동으로 경험치 업데이트 시작
+            startExperienceCalculation(false); // false를 전달하여 시작 알림창을 띄우지 않음
+        } else {
+            console.log("저장된 설정이 없습니다.");
+        }
+    } else {
+        console.log("저장된 노션 토큰이 없습니다.");
     }
 };
 
@@ -172,9 +196,9 @@ const loadDatabases = async () => {
     }
 };
 
-// *** NEW *** 11. 속성 목록 로드 함수
+// 11. 속성 목록 로드 함수
 const loadProperties = async () => {
-    clearInterval(expUpdateInterval); // 다른 DB 선택 시 자동 업데이트 중지
+    clearInterval(expUpdateInterval);
     const selectedDbId = databaseSelect.value;
     if (!selectedDbId) {
         propertySelect.innerHTML = '<option>먼저 데이터베이스를 선택하세요.</option>';
@@ -203,7 +227,7 @@ const loadProperties = async () => {
             propertySelect.disabled = false;
             startButton.disabled = false;
         } else {
-            propertySelect.innerHTML = '<option>계산할 숫자 속성이 없습니다.</option>';
+            propertySelect.innerHTML = '<option>계산할 숫자/함수 속성이 없습니다.</option>';
         }
 
     } catch (error) {
@@ -213,15 +237,30 @@ const loadProperties = async () => {
 };
 
 // *** UPDATED *** 12. 경험치 계산 및 자동 업데이트 시작 함수
-const startExperienceCalculation = () => {
-    clearInterval(expUpdateInterval); // 이전 인터벌이 있다면 중지
+const startExperienceCalculation = async (showAlert = true) => {
+    clearInterval(expUpdateInterval);
+
+    const selectedDbId = databaseSelect.value;
+    const propertyName = propertySelect.value;
+
+    if (!selectedDbId || !propertyName) {
+        if (showAlert) alert("데이터베이스와 속성을 모두 선택해주세요!");
+        return;
+    }
+
+    // *** NEW ***: Firestore에 현재 설정 저장
+    const user = auth.currentUser;
+    if (user) {
+        const settingsDocRef = doc(db, "users", user.uid, "notion", "settings");
+        try {
+            await setDoc(settingsDocRef, { selectedDbId, propertyName });
+            console.log("설정을 Firestore에 저장했습니다.");
+        } catch (error) {
+            console.error("설정 저장 실패:", error);
+        }
+    }
 
     const updateExp = async () => {
-        const selectedDbId = databaseSelect.value;
-        const propertyName = propertySelect.value;
-
-        if (!selectedDbId || !propertyName) return;
-
         startButton.textContent = "경험치 업데이트 중...";
         startButton.disabled = true;
 
@@ -230,14 +269,13 @@ const startExperienceCalculation = () => {
             const result = await calculateExperience({ databaseId: selectedDbId, propertyName: propertyName });
             const { totalExp } = result.data;
 
-            console.log("계산된 총 경험치:", totalExp);
             expDisplay.textContent = totalExp;
             const expPercentage = Math.min((totalExp / 1000) * 100, 100);
             expBar.style.width = `${expPercentage}%`;
 
         } catch (error) {
             console.error("경험치 계산 실패:", error);
-            clearInterval(expUpdateInterval); // 오류 발생 시 자동 업데이트 중지
+            clearInterval(expUpdateInterval);
             alert(`오류: ${error.message}`);
         } finally {
             startButton.textContent = "경험치 자동 업데이트 시작!";
@@ -245,11 +283,10 @@ const startExperienceCalculation = () => {
         }
     };
 
-    updateExp(); // 먼저 한 번 즉시 실행
-    expUpdateInterval = setInterval(updateExp, 60000); // 그 후 1분(60000ms)마다 반복
-    alert("경험치 자동 업데이트가 시작되었습니다. 1분마다 갱신됩니다.");
+    updateExp();
+    expUpdateInterval = setInterval(updateExp, 60000);
+    if (showAlert) alert("경험치 자동 업데이트가 시작되었습니다. 1분마다 갱신됩니다.");
 };
-
 
 // 13. 앱 시작 시 인증 상태를 처리하는 핵심 로직
 try {
@@ -262,11 +299,11 @@ try {
             gameSection.classList.remove('hidden');
             authButton.onclick = logOut;
             notionConnectButton.onclick = connectToNotion;
-            databaseSelect.onchange = loadProperties; // *** NEW ***
+            databaseSelect.onchange = loadProperties;
             startButton.onclick = startExperienceCalculation;
 
             handleNotionCallback(user);
-            checkNotionConnection(user);
+            loadUserData(user); // checkNotionConnection -> loadUserData로 변경
         } else {
             welcomeMessage.textContent = '로그인하여 다마고치를 키워보세요!';
             authButton.textContent = '구글 계정으로 시작하기';
