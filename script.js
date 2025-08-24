@@ -3,14 +3,15 @@ import { initializeApp } from "https://www.gstatic.com/firebasejs/9.22.2/firebas
 import { 
     getAuth, 
     GoogleAuthProvider, 
-    signInWithPopup, 
+    // *** UPDATED ***: signInWithPopup 대신 signInWithRedirect와 getRedirectResult를 사용합니다.
+    signInWithRedirect, 
+    getRedirectResult,
     signOut,
     onAuthStateChanged,
-    // *** NEW ***: 로그인 정보 저장 방식을 설정하기 위한 함수들을 가져옵니다.
     setPersistence,
     browserLocalPersistence
 } from "https://www.gstatic.com/firebasejs/9.22.2/firebase-auth.js";
-// Firestore DB 함수에 'getDoc'을 추가로 가져옵니다.
+// Firestore DB 함수를 가져옵니다.
 import { 
     getFirestore, 
     doc, 
@@ -48,12 +49,13 @@ const notionConnectButton = document.getElementById('notionConnectButton');
 const notionStatus = document.getElementById('notionStatus');
 const gameSection = document.getElementById('gameSection');
 
-// *** UPDATED *** 5. 로그인/로그아웃 함수
+// *** UPDATED *** 5. 로그인/로그아웃 함수 (Redirect 방식)
 const signIn = async () => {
     try {
-        // 로그인 시도 전에, 로그인 정보를 영구 저장소(localStorage)에 저장하도록 설정합니다.
+        // 로그인 정보를 영구 저장소에 저장하도록 설정합니다.
         await setPersistence(auth, browserLocalPersistence);
-        await signInWithPopup(auth, provider);
+        // 팝업 대신 페이지 이동 방식으로 로그인을 시작합니다.
+        await signInWithRedirect(auth, provider);
     } catch (error) {
         handleAuthError(error);
     }
@@ -66,6 +68,14 @@ function handleAuthError(error) {
     authStatus.textContent = `오류: ${error.message}`;
     authStatus.classList.remove('hidden');
 }
+
+// *** NEW ***: 페이지 로드 시 리디렉션 로그인 결과 처리
+getRedirectResult(auth)
+  .catch((error) => {
+    // 리디렉션 과정에서 발생한 오류를 처리합니다.
+    handleAuthError(error);
+  });
+
 
 // 6. 노션 연동 함수 (OAuth 리디렉션)
 const connectToNotion = () => {
