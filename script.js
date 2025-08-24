@@ -5,7 +5,10 @@ import {
     GoogleAuthProvider, 
     signInWithPopup, 
     signOut,
-    onAuthStateChanged 
+    onAuthStateChanged,
+    // *** NEW ***: 로그인 정보 저장 방식을 설정하기 위한 함수들을 가져옵니다.
+    setPersistence,
+    browserLocalPersistence
 } from "https://www.gstatic.com/firebasejs/9.22.2/firebase-auth.js";
 // Firestore DB 함수에 'getDoc'을 추가로 가져옵니다.
 import { 
@@ -45,8 +48,17 @@ const notionConnectButton = document.getElementById('notionConnectButton');
 const notionStatus = document.getElementById('notionStatus');
 const gameSection = document.getElementById('gameSection');
 
-// 5. 로그인/로그아웃 함수
-const signIn = () => signInWithPopup(auth, provider).catch(handleAuthError);
+// *** UPDATED *** 5. 로그인/로그아웃 함수
+const signIn = async () => {
+    try {
+        // 로그인 시도 전에, 로그인 정보를 영구 저장소(localStorage)에 저장하도록 설정합니다.
+        await setPersistence(auth, browserLocalPersistence);
+        await signInWithPopup(auth, provider);
+    } catch (error) {
+        handleAuthError(error);
+    }
+};
+
 const logOut = () => signOut(auth).catch((error) => console.error("로그아웃 실패:", error));
 
 function handleAuthError(error) {
@@ -129,7 +141,7 @@ const updateNotionUI = (isConnected) => {
     }
 };
 
-// *** NEW *** 9. Firestore에서 노션 토큰 확인하는 함수
+// 9. Firestore에서 노션 토큰 확인하는 함수
 const checkNotionConnection = async (user) => {
     if (!user) return;
 
@@ -145,7 +157,7 @@ const checkNotionConnection = async (user) => {
 };
 
 
-// *** UPDATED *** 10. 사용자 인증 상태 변화 감지
+// 10. 사용자 인증 상태 변화 감지
 onAuthStateChanged(auth, (user) => {
     if (user) {
         welcomeMessage.textContent = `${user.displayName}님, 환영합니다!`;
