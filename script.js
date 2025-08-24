@@ -8,6 +8,8 @@ import {
     getRedirectResult,
     signOut,
     onAuthStateChanged,
+    setPersistence,
+    browserLocalPersistence
 } from "https://www.gstatic.com/firebasejs/9.22.2/firebase-auth.js";
 import { 
     getFirestore, 
@@ -65,14 +67,17 @@ const copyStatus = document.getElementById('copyStatus');
 let tamagotchiStateUnsubscribe = null;
 
 // 5. 로그인/로그아웃 함수
-const signIn = () => {
-    signInWithPopup(auth, provider).catch((error) => {
+const signIn = async () => {
+    try {
+        await setPersistence(auth, browserLocalPersistence);
+        await signInWithPopup(auth, provider);
+    } catch (error) {
         if (error.code === 'auth/popup-blocked' || error.code === 'auth/cancelled-popup-request') {
             signInWithRedirect(auth, provider).catch(handleAuthError);
         } else {
             handleAuthError(error);
         }
-    });
+    }
 };
 
 const logOut = () => {
@@ -149,9 +154,65 @@ const loadUserData = async (user) => {
     loadingOverlay.style.display = 'none';
 };
 
-// 10. 데이터베이스 및 속성 로드
-const loadDatabases = async () => { /* ... 이전과 동일 ... */ };
-const loadProperties = async () => { /* ... 이전과 동일 ... */ };
+// *** UPDATED *** 10. 데이터베이스 및 속성 로드 (전체 코드 복원)
+const loadDatabases = async () => {
+    databaseSelect.innerHTML = '<option>데이터베이스 목록을 불러오는 중...</option>';
+    databaseSelect.disabled = true;
+    try {
+        const getNotionDatabases = httpsCallable(functions, 'getNotionDatabases');
+        const result = await getNotionDatabases();
+        const { databases } = result.data;
+        if (databases && databases.length > 0) {
+            databaseSelect.innerHTML = '<option value="">-- 데이터베이스 선택 --</option>';
+            databases.forEach(db => {
+                const option = document.createElement('option');
+                option.value = db.id;
+                option.textContent = db.title;
+                databaseSelect.appendChild(option);
+            });
+            databaseSelect.disabled = false;
+        } else {
+            databaseSelect.innerHTML = '<option>공유된 데이터베이스가 없습니다.</option>';
+        }
+    } catch (error) {
+        console.error("데이터베이스 목록 로드 실패:", error);
+        databaseSelect.innerHTML = `<option>오류: ${error.message}</option>`;
+    }
+};
+
+const loadProperties = async () => {
+    const selectedDbId = databaseSelect.value;
+    if (!selectedDbId) {
+        propertySelect.innerHTML = '<option>먼저 데이터베이스를 선택하세요.</option>';
+        propertySelect.disabled = true;
+        startButton.disabled = true;
+        return;
+    }
+    propertySelect.innerHTML = '<option>속성 목록 불러오는 중...</option>';
+    propertySelect.disabled = true;
+    startButton.disabled = true;
+    try {
+        const getDatabaseProperties = httpsCallable(functions, 'getDatabaseProperties');
+        const result = await getDatabaseProperties({ databaseId: selectedDbId });
+        const { properties } = result.data;
+        if (properties && properties.length > 0) {
+            propertySelect.innerHTML = '';
+            properties.forEach(propName => {
+                const option = document.createElement('option');
+                option.value = propName;
+                option.textContent = propName;
+                propertySelect.appendChild(option);
+            });
+            propertySelect.disabled = false;
+            startButton.disabled = false;
+        } else {
+            propertySelect.innerHTML = '<option>계산할 숫자/함수 속성이 없습니다.</option>';
+        }
+    } catch (error) {
+        console.error("속성 목록 로드 실패:", error);
+        propertySelect.innerHTML = `<option>오류: ${error.message}</option>`;
+    }
+};
 
 // 11. 다마고치 상태 실시간 감지
 const listenToTamagotchiState = (user) => {
@@ -218,8 +279,56 @@ const updateTamagotchiVisuals = (exp, daysOfStagnation) => {
     expBar.style.width = `${Math.min((exp / maxExp) * 100, 100)}%`;
 };
 
-// 14. 링크 복사 함수
-const copyEmbedLink = () => { /* ... 이전과 동일 ... */ };
+// *** UPDATED *** 14. 링크 복사 함수 (전체 코드 복원 및 개선)
+const copyEmbedLink = () => {
+    const linkToCopy = embedLinkInput.value;
+    
+    // navigator.clipboard API를 우선적으로 사용 (더 최신 방식)
+    if (navigator.clipboard && navigator.clipboard.writeText) {
+        navigator.clipboard.writeText(linkToCopy).then(() => {
+            copyStatus.textContent = "✅ 복사 완료!";
+            setTimeout(() => { copyStatus.textContent = ""; }, 2000);
+        }).catch(err => {
+            console.error('클립보드 복사 실패 (navigator):', err);
+            // 실패 시 대체 방법 실행
+            fallbackCopyTextToClipboard(linkToCopy);
+        });
+    } else {
+        // navigator.clipboard를 지원하지 않는 경우 대체 방법 실행
+        fallbackCopyTextToClipboard(linkToCopy);
+    }
+};
+
+// navigator.clipboard 실패 시를 위한 대체 복사 함수
+function fallbackCopyTextToClipboard(text) {
+    const textArea = document.createElement("textarea");
+    textArea.value = text;
+    
+    // 화면에 보이지 않도록 설정
+    textArea.style.top = "0";
+    textArea.style.left = "0";
+    textArea.style.position = "fixed";
+
+    document.body.appendChild(textArea);
+    textArea.focus();
+    textArea.select();
+
+    try {
+        const successful = document.execCommand('copy');
+        if (successful) {
+            copyStatus.textContent = "✅ 복사 완료! (대체 방식)";
+            setTimeout(() => { copyStatus.textContent = ""; }, 2000);
+        } else {
+            throw new Error('Copy command was not successful');
+        }
+    } catch (err) {
+        console.error('클립보드 복사 실패 (fallback):', err);
+        copyStatus.textContent = "복사 실패. 직접 복사해주세요.";
+        copyStatus.classList.add('text-red-600');
+    }
+
+    document.body.removeChild(textArea);
+}
 
 // 15. 앱 시작 로직
 try {
@@ -232,6 +341,7 @@ try {
                 notionSection.classList.remove('hidden');
                 welcomeMessage.textContent = `${user.displayName}님, 환영합니다!`;
                 authButton.textContent = '로그아웃';
+                authStatus.classList.add('hidden');
                 authButton.onclick = logOut;
                 notionConnectButton.onclick = connectToNotion;
                 databaseSelect.onchange = loadProperties;
@@ -250,6 +360,7 @@ try {
                 // 로그아웃 UI 업데이트
                 welcomeMessage.textContent = '로그인하여 다마고치를 키워보세요!';
                 authButton.textContent = '구글 계정으로 시작하기';
+                authStatus.classList.add('hidden');
                 authButton.onclick = signIn;
                 gameSection.classList.add('hidden');
                 embedSection.classList.add('hidden');
