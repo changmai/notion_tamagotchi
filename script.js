@@ -16,10 +16,10 @@ import {
 
 // 1. Firebase 설정
 const firebaseConfig = {
-  apiKey: "YOUR_API_KEY", // 실제 값으로 변경해야 합니다.
+  apiKey: "AIzaSyDZZMSJG4sh9Vw-T7pjMztC2swkOg1i8os",
   authDomain: "notion-tamagotchi.firebaseapp.com",
   projectId: "notion-tamagotchi",
-  storageBucket: "notion-tamagotchi.appspot.com",
+  storageBucket: "notion-tamagotchi.firebasestorage.app",
   messagingSenderId: "128399204318",
   appId: "1:128399204318:web:197bf0d12b437b910f474f",
   measurementId: "G-02V3VDK4Q6"
@@ -32,7 +32,7 @@ const provider = new GoogleAuthProvider();
 const db = getFirestore(app); // Firestore 데이터베이스 서비스 초기화
 
 // 3. Notion OAuth 설정
-const NOTION_CLIENT_ID = "YOUR_NOTION_CLIENT_ID"; // 실제 값으로 변경해야 합니다.
+const NOTION_CLIENT_ID = "259d872b-594c-80c7-9fd9-0037bc5be4d1"; // 실제 값으로 변경해야 합니다.
 const NOTION_REDIRECT_URI = "https://notiontamagotchi.netlify.app"; 
 
 // 4. HTML 요소 가져오기
