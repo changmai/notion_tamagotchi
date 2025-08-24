@@ -67,17 +67,14 @@ const copyStatus = document.getElementById('copyStatus');
 let tamagotchiStateUnsubscribe = null;
 
 // 5. 로그인/로그아웃 함수
-const signIn = async () => {
-    try {
-        await setPersistence(auth, browserLocalPersistence);
-        await signInWithPopup(auth, provider);
-    } catch (error) {
+const signIn = () => {
+    signInWithPopup(auth, provider).catch((error) => {
         if (error.code === 'auth/popup-blocked' || error.code === 'auth/cancelled-popup-request') {
             signInWithRedirect(auth, provider).catch(handleAuthError);
         } else {
             handleAuthError(error);
         }
-    }
+    });
 };
 
 const logOut = () => {
@@ -220,7 +217,7 @@ const listenToTamagotchiState = (user) => {
     const stateDocRef = doc(db, "users", user.uid, "tamagotchi", "state");
     tamagotchiStateUnsubscribe = onSnapshot(stateDocRef, (docSnap) => {
         if (docSnap.exists()) {
-            console.log("Firestore에서 실시간 업데이트를 감지했습니다!"); // 디버깅용 로그
+            console.log("Firestore에서 실시간 업데이트를 감지했습니다!");
             const { totalExp, daysOfStagnation = 0 } = docSnap.data();
             updateTamagotchiVisuals(totalExp, daysOfStagnation);
         }
@@ -296,9 +293,9 @@ const copyEmbedLink = () => {
 function fallbackCopyTextToClipboard(text) {
     const textArea = document.createElement("textarea");
     textArea.value = text;
+    textArea.style.position = "fixed";
     textArea.style.top = "0";
     textArea.style.left = "0";
-    textArea.style.position = "fixed";
     document.body.appendChild(textArea);
     textArea.focus();
     textArea.select();
@@ -314,12 +311,17 @@ function fallbackCopyTextToClipboard(text) {
     document.body.removeChild(textArea);
 }
 
-// 15. 앱 시작 로직
-try {
-    getRedirectResult(auth).then(() => {
+// *** UPDATED *** 15. 앱 시작 로직 (가장 안정적인 방식)
+const mainApp = async () => {
+    try {
+        // 앱이 시작될 때 가장 먼저 영구 저장소 사용을 설정합니다.
+        await setPersistence(auth, browserLocalPersistence);
+        
+        // onAuthStateChanged는 로그인/로그아웃 등 모든 인증 상태 변화를 감지하는
+        // 유일하고 가장 신뢰할 수 있는 방법입니다.
         onAuthStateChanged(auth, (user) => {
             if (user) {
-                // 로그인 UI 업데이트
+                // 사용자가 로그인한 경우
                 gameSection.classList.remove('hidden');
                 embedSection.classList.remove('hidden');
                 notionSection.classList.remove('hidden');
@@ -341,7 +343,7 @@ try {
                 embedLinkInput.value = imageUrl;
 
             } else {
-                // 로그아웃 UI 업데이트
+                // 사용자가 로그아웃한 경우
                 welcomeMessage.textContent = '로그인하여 다마고치를 키워보세요!';
                 authButton.textContent = '구글 계정으로 시작하기';
                 authStatus.classList.add('hidden');
@@ -352,7 +354,15 @@ try {
                 databaseSection.classList.add('hidden');
             }
         });
-    });
-} catch (error) {
-    handleAuthError(error);
-}
+
+        // 페이지 이동(Redirect) 방식으로 로그인한 후 돌아왔을 때, 그 결과를 처리합니다.
+        // 이 과정이 끝나면 위의 onAuthStateChanged가 자동으로 실행됩니다.
+        await getRedirectResult(auth);
+
+    } catch (error) {
+        handleAuthError(error);
+    }
+};
+
+// 앱 시작!
+mainApp();
