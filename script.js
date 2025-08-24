@@ -17,7 +17,6 @@ import {
     setDoc,
     getDoc 
 } from "https://www.gstatic.com/firebasejs/9.22.2/firebase-firestore.js";
-// *** NEW ***: Cloud Functions를 호출하기 위한 함수를 가져옵니다.
 import { getFunctions, httpsCallable } from "https://www.gstatic.com/firebasejs/9.22.2/firebase-functions.js";
 
 // 1. Firebase 설정
@@ -36,7 +35,7 @@ const app = initializeApp(firebaseConfig);
 const auth = getAuth(app);
 const provider = new GoogleAuthProvider();
 const db = getFirestore(app);
-const functions = getFunctions(app, "asia-northeast3"); // Functions 서비스 초기화
+const functions = getFunctions(app, "asia-northeast3");
 
 // 3. Notion OAuth 설정
 const NOTION_CLIENT_ID = "259d872b-594c-80c7-9fd9-0037bc5be4d1";
@@ -49,10 +48,13 @@ const authStatus = document.getElementById('authStatus');
 const notionSection = document.getElementById('notionSection');
 const notionConnectButton = document.getElementById('notionConnectButton');
 const notionStatus = document.getElementById('notionStatus');
-const databaseSection = document.getElementById('databaseSection'); // 새 요소
-const databaseSelect = document.getElementById('databaseSelect'); // 새 요소
-const startButton = document.getElementById('startButton');       // 새 요소
+const databaseSection = document.getElementById('databaseSection');
+const databaseSelect = document.getElementById('databaseSelect');
+const propertyInput = document.getElementById('propertyInput'); // 새 요소
+const startButton = document.getElementById('startButton');
 const gameSection = document.getElementById('gameSection');
+const expDisplay = document.getElementById('expDisplay'); // 새 요소
+const expBar = document.getElementById('expBar');       // 새 요소
 
 // 5. 로그인/로그아웃 함수 (하이브리드 방식)
 const signIn = async () => {
@@ -97,19 +99,15 @@ const handleNotionCallback = async (user) => {
             const exchangeCodeForToken = httpsCallable(functions, 'exchangeCodeForToken');
             const tokenData = await exchangeCodeForToken({ code: notionCode, redirectUri: NOTION_REDIRECT_URI });
             
-            console.log("성공적으로 액세스 토큰을 받았습니다:", tokenData.data);
-            
             const tokenDocRef = doc(db, "users", user.uid, "notion", "token");
             await setDoc(tokenDocRef, tokenData.data);
-            console.log("Firestore에 토큰을 성공적으로 저장했습니다.");
             
             updateNotionUI(true);
-            loadDatabases(); // *** NEW ***: 토큰 저장 후 데이터베이스 목록 로드
+            loadDatabases();
 
         } catch (error) {
             console.error("액세스 토큰 처리 실패:", error);
             notionStatus.textContent = `오류: 토큰 처리에 실패했습니다.`;
-            notionStatus.classList.remove('hidden', 'text-green-600');
             notionStatus.classList.add('text-red-600');
             notionConnectButton.textContent = '연동 실패, 재시도';
         } finally {
@@ -122,11 +120,11 @@ const handleNotionCallback = async (user) => {
 const updateNotionUI = (isConnected) => {
     if (isConnected) {
         notionConnectButton.textContent = '노션 재연동하기';
-        notionConnectButton.classList.add('bg-green-600', 'hover:bg-green-700');
+        notionConnectButton.classList.add('bg-green-600');
         notionStatus.textContent = '✅ 노션 연동 완료!';
         notionStatus.classList.remove('hidden', 'text-red-600');
         notionStatus.classList.add('text-green-600');
-        databaseSection.classList.remove('hidden'); // 데이터베이스 선택 섹션 보이기
+        databaseSection.classList.remove('hidden');
     }
 };
 
@@ -137,15 +135,12 @@ const checkNotionConnection = async (user) => {
     const docSnap = await getDoc(tokenDocRef);
 
     if (docSnap.exists()) {
-        console.log("저장된 노션 토큰을 찾았습니다.");
         updateNotionUI(true);
-        loadDatabases(); // *** NEW ***: 저장된 토큰 확인 후 데이터베이스 목록 로드
-    } else {
-        console.log("저장된 노션 토큰이 없습니다.");
+        loadDatabases();
     }
 };
 
-// *** NEW *** 10. 백엔드에 데이터베이스 목록 요청 및 UI 업데이트 함수
+// 10. 백엔드에 데이터베이스 목록 요청 및 UI 업데이트 함수
 const loadDatabases = async () => {
     databaseSelect.innerHTML = '<option>데이터베이스 목록을 불러오는 중...</option>';
     databaseSelect.disabled = true;
@@ -156,10 +151,8 @@ const loadDatabases = async () => {
         const result = await getNotionDatabases();
         const { databases } = result.data;
 
-        console.log("받아온 데이터베이스 목록:", databases);
-
         if (databases && databases.length > 0) {
-            databaseSelect.innerHTML = ''; // 기존 옵션 삭제
+            databaseSelect.innerHTML = '';
             databases.forEach(db => {
                 const option = document.createElement('option');
                 option.value = db.id;
@@ -178,7 +171,41 @@ const loadDatabases = async () => {
     }
 };
 
-// 11. 앱 시작 시 인증 상태를 처리하는 핵심 로직
+// *** NEW *** 11. 경험치 계산 시작 함수
+const startExperienceCalculation = async () => {
+    const selectedDbId = databaseSelect.value;
+    const propertyName = propertyInput.value.trim();
+
+    if (!propertyName) {
+        alert("경험치로 계산할 속성 이름을 입력해주세요!");
+        return;
+    }
+
+    startButton.textContent = "경험치 계산 중...";
+    startButton.disabled = true;
+
+    try {
+        const calculateExperience = httpsCallable(functions, 'calculateExperience');
+        const result = await calculateExperience({ databaseId: selectedDbId, propertyName: propertyName });
+        const { totalExp } = result.data;
+
+        console.log("계산된 총 경험치:", totalExp);
+        expDisplay.textContent = totalExp;
+        // 경험치 바 업데이트 (최대 1000이라고 가정)
+        const expPercentage = Math.min((totalExp / 1000) * 100, 100);
+        expBar.style.width = `${expPercentage}%`;
+
+    } catch (error) {
+        console.error("경험치 계산 실패:", error);
+        alert(`오류: ${error.message}`);
+    } finally {
+        startButton.textContent = "경험치 계산 시작!";
+        startButton.disabled = false;
+    }
+};
+
+
+// 12. 앱 시작 시 인증 상태를 처리하는 핵심 로직
 try {
     await getRedirectResult(auth);
 
@@ -188,11 +215,11 @@ try {
             welcomeMessage.textContent = `${user.displayName}님, 환영합니다!`;
             authButton.textContent = '로그아웃';
             authStatus.textContent = `로그인 계정: ${user.email}`;
-            authStatus.classList.remove('hidden');
             notionSection.classList.remove('hidden');
             gameSection.classList.remove('hidden');
             authButton.onclick = logOut;
             notionConnectButton.onclick = connectToNotion;
+            startButton.onclick = startExperienceCalculation; // *** NEW ***
 
             // 기능 로직 실행
             handleNotionCallback(user);
@@ -201,7 +228,6 @@ try {
             // 로그아웃 UI 업데이트
             welcomeMessage.textContent = '로그인하여 다마고치를 키워보세요!';
             authButton.textContent = '구글 계정으로 시작하기';
-            authStatus.classList.add('hidden');
             notionSection.classList.add('hidden');
             databaseSection.classList.add('hidden');
             gameSection.classList.add('hidden');
