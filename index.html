@@ -23,7 +23,7 @@
         <!-- 2. 로그인 상태 메시지 -->
         <p id="authStatus" class="mt-4 text-sm text-gray-500 hidden"></p>
         
-        <!-- 3. 노션 연동 섹션 (로그인 후 보임) -->
+        <!-- 3. 노션 연동 섹션 -->
         <div id="notionSection" class="mt-6 hidden">
             <h2 class="text-xl font-semibold text-gray-700">STEP 1. 노션 연동</h2>
             <button id="notionConnectButton" class="bg-gray-800 hover:bg-gray-900 text-white font-bold py-2 px-4 rounded-lg mt-2 transition duration-300 ease-in-out w-full">
@@ -32,13 +32,16 @@
             <p id="notionStatus" class="mt-2 text-sm text-green-600 font-semibold hidden">✅ 노션 연동 완료!</p>
         </div>
 
-        <!-- *** NEW *** 4. 데이터베이스 선택 섹션 (노션 연동 후 보임) -->
+        <!-- 4. 데이터베이스 선택 섹션 -->
         <div id="databaseSection" class="mt-6 hidden">
-            <h2 class="text-xl font-semibold text-gray-700">STEP 2. 데이터베이스 선택</h2>
+            <h2 class="text-xl font-semibold text-gray-700">STEP 2. 경험치 설정</h2>
             <p class="text-sm text-gray-500 mt-1 mb-2">경험치로 사용할 데이터베이스를 선택하세요.</p>
-            <select id="databaseSelect" class="w-full p-2 border border-gray-300 rounded-lg bg-white">
+            <select id="databaseSelect" class="w-full p-2 border border-gray-300 rounded-lg bg-white mb-2">
                 <option>데이터베이스 목록을 불러오는 중...</option>
             </select>
+            <!-- *** NEW ***: 속성 이름 입력 필드 추가 -->
+            <input type="text" id="propertyInput" placeholder="경험치로 계산할 속성 이름 (예: 경험치)" class="w-full p-2 border border-gray-300 rounded-lg">
+            
             <button id="startButton" class="bg-green-500 hover:bg-green-600 text-white font-bold py-2 px-4 rounded-lg mt-4 w-full">
                 경험치 계산 시작!
             </button>
@@ -50,28 +53,20 @@
         <div id="gameSection" class="hidden">
             <h2 class="text-2xl font-semibold text-gray-700">나의 다마고치</h2>
             
-            <!-- 다마고치 GIF 표시 영역 -->
             <div id="tamagotchiContainer" class="mt-4 p-4 bg-gray-100 rounded-lg min-h-[180px] flex items-center justify-center">
                 <img id="tamagotchiImage" src="https://placehold.co/150x150/E2E8F0/A0AEC0?text=...Zzz" alt="다마고치 이미지" class="mx-auto rounded-full w-36 h-36">
             </div>
             
-            <!-- 경험치(EXP) 표시 -->
             <div class="mt-4">
                 <p class="text-lg font-bold text-gray-800">경험치(EXP)</p>
                 <div class="w-full bg-gray-200 rounded-full h-4 mt-1">
-                    <div id="expBar" class="bg-green-500 h-4 rounded-full" style="width: 0%"></div>
+                    <div id="expBar" class="bg-green-500 h-4 rounded-full transition-all duration-500" style="width: 0%"></div>
                 </div>
                 <p id="expDisplay" class="text-xl font-bold text-green-600 mt-1">0</p>
             </div>
         </div>
         
     </div>
-
-    <!-- 
-      JavaScript 파일을 불러옵니다. 
-      'type="module"'은 import 구문을 사용하기 위해 필수입니다.
-    -->
     <script type="module" src="script.js"></script>
-    
 </body>
 </html>
