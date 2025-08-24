@@ -25,7 +25,7 @@ const auth = getAuth(app);
 const provider = new GoogleAuthProvider();
 
 // 3. Notion OAuth 설정
-const NOTION_CLIENT_ID = "259d872b-594c-4f7f-80c7-9f44c4f74d0d"; // 실제 값으로 변경됨
+const NOTION_CLIENT_ID = "259d872b-594c-80c7-9fd9-0037bc5be4d1"; // 실제 값으로 변경됨
 // *** UPDATED ***: 사용자가 설정한 영구 주소로 변경합니다.
 const NOTION_REDIRECT_URI = "https://notiontamagotchi.netlify.app"; 
 
@@ -140,4 +140,5 @@ onAuthStateChanged(auth, (user) => {
         authButton.onclick = signIn;
     }
 });
+
 
