@@ -53,10 +53,14 @@ const databaseSelect = document.getElementById('databaseSelect');
 const propertySelect = document.getElementById('propertySelect');
 const startButton = document.getElementById('startButton');
 const gameSection = document.getElementById('gameSection');
-const tamagotchiImage = document.getElementById('tamagotchiImage'); // 새 요소
-const tamagotchiLevel = document.getElementById('tamagotchiLevel'); // 새 요소
+const tamagotchiImage = document.getElementById('tamagotchiImage');
+const tamagotchiLevel = document.getElementById('tamagotchiLevel');
 const expDisplay = document.getElementById('expDisplay');
 const expBar = document.getElementById('expBar');
+const embedSection = document.getElementById('embedSection'); // 새 요소
+const embedLinkInput = document.getElementById('embedLinkInput'); // 새 요소
+const copyLinkButton = document.getElementById('copyLinkButton'); // 새 요소
+const copyStatus = document.getElementById('copyStatus'); // 새 요소
 
 // 경험치 자동 업데이트를 위한 변수
 let expUpdateInterval = null;
@@ -254,7 +258,6 @@ const startExperienceCalculation = async (showAlert = true) => {
             const expPercentage = Math.min((totalExp / 1000) * 100, 100);
             expBar.style.width = `${expPercentage}%`;
             
-            // *** NEW ***: 경험치에 따라 다마고치 모습 업데이트
             updateTamagotchiVisuals(totalExp);
 
         } catch (error) {
@@ -272,7 +275,7 @@ const startExperienceCalculation = async (showAlert = true) => {
     if (showAlert) alert("경험치 자동 업데이트가 시작되었습니다. 1분마다 갱신됩니다.");
 };
 
-// *** NEW *** 13. 다마고치 시각화 업데이트 함수
+// 13. 다마고치 시각화 업데이트 함수
 const updateTamagotchiVisuals = (exp) => {
     let level = 1;
     let levelName = "알";
@@ -300,8 +303,17 @@ const updateTamagotchiVisuals = (exp) => {
     tamagotchiLevel.textContent = `Level ${level}: ${levelName}`;
 };
 
+// *** NEW *** 14. 임베딩 링크 복사 함수
+const copyEmbedLink = () => {
+    embedLinkInput.select();
+    document.execCommand('copy');
+    copyStatus.textContent = "✅ 복사 완료!";
+    setTimeout(() => {
+        copyStatus.textContent = "";
+    }, 2000); // 2초 후에 메시지 사라짐
+};
 
-// 14. 앱 시작 시 인증 상태를 처리하는 핵심 로직
+// 15. 앱 시작 시 인증 상태를 처리하는 핵심 로직
 try {
     await getRedirectResult(auth);
     onAuthStateChanged(auth, (user) => {
@@ -310,10 +322,16 @@ try {
             authButton.textContent = '로그아웃';
             notionSection.classList.remove('hidden');
             gameSection.classList.remove('hidden');
+            embedSection.classList.remove('hidden'); // 링크 섹션 보이기
             authButton.onclick = logOut;
             notionConnectButton.onclick = connectToNotion;
             databaseSelect.onchange = loadProperties;
             startButton.onclick = startExperienceCalculation;
+            copyLinkButton.onclick = copyEmbedLink; // 복사 버튼에 기능 연결
+
+            // *** NEW ***: 임베딩 링크 생성 및 표시
+            const imageUrl = `https://asia-northeast3-notion-tamagotchi.cloudfunctions.net/serveTamagotchiImage?uid=${user.uid}`;
+            embedLinkInput.value = imageUrl;
 
             handleNotionCallback(user);
             loadUserData(user);
@@ -323,6 +341,7 @@ try {
             notionSection.classList.add('hidden');
             databaseSection.classList.add('hidden');
             gameSection.classList.add('hidden');
+            embedSection.classList.add('hidden'); // 링크 섹션 숨기기
             authButton.onclick = signIn;
         }
     });
