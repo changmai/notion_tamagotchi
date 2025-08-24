@@ -53,6 +53,8 @@ const databaseSelect = document.getElementById('databaseSelect');
 const propertySelect = document.getElementById('propertySelect');
 const startButton = document.getElementById('startButton');
 const gameSection = document.getElementById('gameSection');
+const tamagotchiImage = document.getElementById('tamagotchiImage'); // 새 요소
+const tamagotchiLevel = document.getElementById('tamagotchiLevel'); // 새 요소
 const expDisplay = document.getElementById('expDisplay');
 const expBar = document.getElementById('expBar');
 
@@ -131,39 +133,26 @@ const updateNotionUI = (isConnected) => {
     }
 };
 
-// *** UPDATED *** 9. Firestore에서 사용자 데이터(토큰 및 설정) 로드 함수
+// 9. Firestore에서 사용자 데이터(토큰 및 설정) 로드 함수
 const loadUserData = async (user) => {
     if (!user) return;
-
-    // 1. Notion 토큰 확인
     const tokenDocRef = doc(db, "users", user.uid, "notion", "token");
     const tokenSnap = await getDoc(tokenDocRef);
 
     if (tokenSnap.exists()) {
-        console.log("저장된 노션 토큰을 찾았습니다.");
-        updateNotionUI(true); // UI를 '연동 완료' 상태로 변경
-        await loadDatabases(); // 데이터베이스 목록 로드
+        updateNotionUI(true);
+        await loadDatabases();
 
-        // 2. 저장된 설정 확인
         const settingsDocRef = doc(db, "users", user.uid, "notion", "settings");
         const settingsSnap = await getDoc(settingsDocRef);
 
         if (settingsSnap.exists()) {
-            console.log("저장된 설정을 찾았습니다:", settingsSnap.data());
             const { selectedDbId, propertyName } = settingsSnap.data();
-
-            // 3. UI에 저장된 설정 적용
             databaseSelect.value = selectedDbId;
-            await loadProperties(); // 저장된 DB의 속성 목록 로드
+            await loadProperties();
             propertySelect.value = propertyName;
-
-            // 4. 자동으로 경험치 업데이트 시작
-            startExperienceCalculation(false); // false를 전달하여 시작 알림창을 띄우지 않음
-        } else {
-            console.log("저장된 설정이 없습니다.");
+            startExperienceCalculation(false);
         }
-    } else {
-        console.log("저장된 노션 토큰이 없습니다.");
     }
 };
 
@@ -191,7 +180,6 @@ const loadDatabases = async () => {
         }
 
     } catch (error) {
-        console.error("데이터베이스 목록 로드 실패:", error);
         databaseSelect.innerHTML = `<option>오류: ${error.message}</option>`;
     }
 };
@@ -231,12 +219,11 @@ const loadProperties = async () => {
         }
 
     } catch (error) {
-        console.error("속성 목록 로드 실패:", error);
         propertySelect.innerHTML = `<option>오류: ${error.message}</option>`;
     }
 };
 
-// *** UPDATED *** 12. 경험치 계산 및 자동 업데이트 시작 함수
+// 12. 경험치 계산 및 자동 업데이트 시작 함수
 const startExperienceCalculation = async (showAlert = true) => {
     clearInterval(expUpdateInterval);
 
@@ -248,16 +235,10 @@ const startExperienceCalculation = async (showAlert = true) => {
         return;
     }
 
-    // *** NEW ***: Firestore에 현재 설정 저장
     const user = auth.currentUser;
     if (user) {
         const settingsDocRef = doc(db, "users", user.uid, "notion", "settings");
-        try {
-            await setDoc(settingsDocRef, { selectedDbId, propertyName });
-            console.log("설정을 Firestore에 저장했습니다.");
-        } catch (error) {
-            console.error("설정 저장 실패:", error);
-        }
+        await setDoc(settingsDocRef, { selectedDbId, propertyName });
     }
 
     const updateExp = async () => {
@@ -272,6 +253,9 @@ const startExperienceCalculation = async (showAlert = true) => {
             expDisplay.textContent = totalExp;
             const expPercentage = Math.min((totalExp / 1000) * 100, 100);
             expBar.style.width = `${expPercentage}%`;
+            
+            // *** NEW ***: 경험치에 따라 다마고치 모습 업데이트
+            updateTamagotchiVisuals(totalExp);
 
         } catch (error) {
             console.error("경험치 계산 실패:", error);
@@ -288,7 +272,36 @@ const startExperienceCalculation = async (showAlert = true) => {
     if (showAlert) alert("경험치 자동 업데이트가 시작되었습니다. 1분마다 갱신됩니다.");
 };
 
-// 13. 앱 시작 시 인증 상태를 처리하는 핵심 로직
+// *** NEW *** 13. 다마고치 시각화 업데이트 함수
+const updateTamagotchiVisuals = (exp) => {
+    let level = 1;
+    let levelName = "알";
+    let imageUrl = "https://placehold.co/150x150/E2E8F0/A0AEC0?text=Egg";
+
+    if (exp >= 1000) {
+        level = 5;
+        levelName = "어른";
+        imageUrl = "https://placehold.co/150x150/FDE68A/D97706?text=Adult";
+    } else if (exp >= 600) {
+        level = 4;
+        levelName = "청소년";
+        imageUrl = "https://placehold.co/150x150/FBCFE8/DB2777?text=Teen";
+    } else if (exp >= 300) {
+        level = 3;
+        levelName = "어린이";
+        imageUrl = "https://placehold.co/150x150/BAE6FD/0284C7?text=Child";
+    } else if (exp >= 100) {
+        level = 2;
+        levelName = "아기";
+        imageUrl = "https://placehold.co/150x150/A7F3D0/10B981?text=Baby";
+    }
+
+    tamagotchiImage.src = imageUrl;
+    tamagotchiLevel.textContent = `Level ${level}: ${levelName}`;
+};
+
+
+// 14. 앱 시작 시 인증 상태를 처리하는 핵심 로직
 try {
     await getRedirectResult(auth);
     onAuthStateChanged(auth, (user) => {
@@ -303,7 +316,7 @@ try {
             startButton.onclick = startExperienceCalculation;
 
             handleNotionCallback(user);
-            loadUserData(user); // checkNotionConnection -> loadUserData로 변경
+            loadUserData(user);
         } else {
             welcomeMessage.textContent = '로그인하여 다마고치를 키워보세요!';
             authButton.textContent = '구글 계정으로 시작하기';
