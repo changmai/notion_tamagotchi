@@ -10,7 +10,7 @@ import {
 
 // 1. Firebase 설정
 const firebaseConfig = {
-  apiKey: "AIzaSyDZZMSJG4sh9Vw-T7pjMztC2swkOg1i8os",
+  apiKey: "AIzaSyDZZMSJG4shVw-T7pjMztC2swkOg1i8os",
   authDomain: "notion-tamagotchi.firebaseapp.com",
   projectId: "notion-tamagotchi",
   storageBucket: "notion-tamagotchi.appspot.com",
@@ -25,24 +25,8 @@ const auth = getAuth(app);
 const provider = new GoogleAuthProvider();
 
 // 3. Notion OAuth 설정
-// !!! 중요: "YOUR_NOTION_CLIENT_ID"를 실제 값으로 꼭 변경해야 합니다. !!!
-const NOTION_CLIENT_ID = "259d872b-594c-80c7-9fd9-0037bc5be4d1"; 
-// *** UPDATED ***: 동적 주소 대신 Netlify의 고정 주소를 사용합니다.
-const NOTION_REDIRECT_URI = "https://notiontamagotchi.netlify.app";
-
-// *** NEW *** 설정 값 확인 로직 추가
-if (NOTION_CLIENT_ID === "YOUR_NOTION_CLIENT_ID") {
-    const errorMessage = "!!! 설정 오류: script.js 파일의 NOTION_CLIENT_ID를 실제 값으로 변경해야 합니다. !!!";
-    console.error(errorMessage);
-    // 화면에 직접 오류를 표시하여 문제를 바로 알 수 있도록 합니다.
-    document.addEventListener('DOMContentLoaded', () => {
-        document.body.innerHTML = `<div style="padding: 2rem; text-align: center; background-color: #fee2e2; color: #b91c1c;">
-            <h1 style="font-size: 1.5rem; font-weight: bold;">설정 오류!</h1>
-            <p>${errorMessage}</p>
-        </div>`;
-    });
-}
-
+const NOTION_CLIENT_ID = "259d872b-594c-4f7f-80c7-9f44c4f74d0d"; // 실제 값으로 변경됨
+const NOTION_REDIRECT_URI = "https://my-notion-tamagotchi-c828b.netlify.app"; // 실제 값으로 변경됨
 
 // 4. HTML 요소 가져오기
 const welcomeMessage = document.getElementById('welcomeMessage');
@@ -54,13 +38,8 @@ const notionStatus = document.getElementById('notionStatus');
 const gameSection = document.getElementById('gameSection');
 
 // 5. 로그인/로그아웃 함수
-const signIn = () => {
-    signInWithPopup(auth, provider).catch(handleAuthError);
-};
-
-const logOut = () => {
-    signOut(auth).catch((error) => console.error("로그아웃 실패:", error));
-};
+const signIn = () => signInWithPopup(auth, provider).catch(handleAuthError);
+const logOut = () => signOut(auth).catch((error) => console.error("로그아웃 실패:", error));
 
 function handleAuthError(error) {
     console.error("인증 실패:", error);
@@ -72,22 +51,55 @@ function handleAuthError(error) {
 const connectToNotion = () => {
     console.log("노션 인증 페이지로 이동합니다...");
     const authUrl = `https://api.notion.com/v1/oauth/authorize?client_id=${NOTION_CLIENT_ID}&response_type=code&owner=user&redirect_uri=${encodeURIComponent(NOTION_REDIRECT_URI)}`;
-    window.location.href = authUrl; // 노션 인증 페이지로 이동
+    window.location.href = authUrl;
 };
 
-// 7. 노션 인증 후 콜백 처리 함수
-const handleNotionCallback = () => {
+// *** UPDATED *** 7. 노션 인증 후 콜백 처리 및 토큰 교환 함수
+const handleNotionCallback = async () => {
     const urlParams = new URLSearchParams(window.location.search);
     const notionCode = urlParams.get('code');
 
     if (notionCode) {
         console.log("노션 인증 코드 수신:", notionCode);
-        
-        // 다음 단계: 이 'notionCode'를 백엔드로 보내 'access_token'으로 교환
-        updateNotionUI(true);
+        notionConnectButton.textContent = '토큰 교환 중...';
+        notionConnectButton.disabled = true;
 
         // URL에서 코드를 제거하여 새로고침 시 재실행되지 않도록 함
         window.history.replaceState({}, document.title, window.location.pathname);
+
+        try {
+            // 백엔드(Firebase Function)에 토큰 교환 요청
+            const functionUrl = "https://asia-northeast3-notion-tamagotchi.cloudfunctions.net/exchangeCodeForToken";
+            const response = await fetch(functionUrl, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    code: notionCode,
+                    redirectUri: NOTION_REDIRECT_URI,
+                }),
+            });
+
+            if (!response.ok) {
+                const errorText = await response.text();
+                throw new Error(`서버 오류: ${response.status} ${errorText}`);
+            }
+
+            const data = await response.json();
+            console.log("성공적으로 액세스 토큰을 받았습니다:", data);
+            
+            // TODO: 받은 access_token을 안전하게 저장해야 합니다. (다음 단계)
+            
+            updateNotionUI(true);
+
+        } catch (error) {
+            console.error("액세스 토큰 교환 실패:", error);
+            notionStatus.textContent = `오류: 토큰 교환에 실패했습니다.`;
+            notionStatus.classList.remove('hidden', 'text-green-600');
+            notionStatus.classList.add('text-red-600');
+            notionConnectButton.textContent = '연동 실패, 재시도';
+        } finally {
+            notionConnectButton.disabled = false;
+        }
     }
 };
 
@@ -103,10 +115,7 @@ const updateNotionUI = (isConnected) => {
 
 // 9. 사용자 인증 상태 변화 감지
 onAuthStateChanged(auth, (user) => {
-    if (NOTION_CLIENT_ID === "YOUR_NOTION_CLIENT_ID") return; // 설정 오류 시 앱 실행 중단
-
     if (user) {
-        // 사용자가 로그인한 경우
         welcomeMessage.textContent = `${user.displayName}님, 환영합니다!`;
         authButton.textContent = '로그아웃';
         authStatus.textContent = `로그인 계정: ${user.email}`;
@@ -118,11 +127,8 @@ onAuthStateChanged(auth, (user) => {
         authButton.onclick = logOut;
         notionConnectButton.onclick = connectToNotion;
 
-        // 페이지 로드 시 노션 콜백 처리
         handleNotionCallback();
-
     } else {
-        // 사용자가 로그아웃한 경우
         welcomeMessage.textContent = '로그인하여 다마고치를 키워보세요!';
         authButton.textContent = '구글 계정으로 시작하기';
         authStatus.classList.add('hidden');
@@ -133,4 +139,3 @@ onAuthStateChanged(auth, (user) => {
         authButton.onclick = signIn;
     }
 });
-
