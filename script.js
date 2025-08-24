@@ -135,21 +135,26 @@ const updateNotionUI = (isConnected) => {
 const loadUserData = async (user) => {
     if (!user) return;
     loadingOverlay.style.display = 'flex';
-    const tokenDocRef = doc(db, "users", user.uid, "notion", "token");
-    const tokenSnap = await getDoc(tokenDocRef);
-    if (tokenSnap.exists()) {
-        updateNotionUI(true);
-        await loadDatabases();
-        const settingsDocRef = doc(db, "users", user.uid, "notion", "settings");
-        const settingsSnap = await getDoc(settingsDocRef);
-        if (settingsSnap.exists()) {
-            const { selectedDbId, propertyName } = settingsSnap.data();
-            databaseSelect.value = selectedDbId;
-            await loadProperties();
-            propertySelect.value = propertyName;
+    try {
+        const tokenDocRef = doc(db, "users", user.uid, "notion", "token");
+        const tokenSnap = await getDoc(tokenDocRef);
+        if (tokenSnap.exists()) {
+            updateNotionUI(true);
+            await loadDatabases();
+            const settingsDocRef = doc(db, "users", user.uid, "notion", "settings");
+            const settingsSnap = await getDoc(settingsDocRef);
+            if (settingsSnap.exists()) {
+                const { selectedDbId, propertyName } = settingsSnap.data();
+                databaseSelect.value = selectedDbId;
+                await loadProperties();
+                propertySelect.value = propertyName;
+            }
         }
+    } catch (error) {
+        console.error("사용자 데이터 로드 중 오류:", error);
+    } finally {
+        loadingOverlay.style.display = 'none';
     }
-    loadingOverlay.style.display = 'none';
 };
 
 // 10. 데이터베이스 및 속성 로드
