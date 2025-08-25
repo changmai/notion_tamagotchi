@@ -282,6 +282,7 @@ const updateTamagotchiVisuals = (exp) => {
     expBar.style.width = `${Math.min((exp / maxExp) * 100, 100)}%`;
 };
 
+
 // 14. 링크 복사 함수
 const copyEmbedLink = () => {
     const linkToCopy = embedLinkInput.value;
@@ -325,7 +326,7 @@ const mainApp = async () => {
             if (user) {
                 // 로그인 UI 업데이트
                 gameSection.classList.remove('hidden');
-                embedSection.classList.remove('hidden');
+                embedSection.classList.remove('hidden'); // *** FIX ***: 이 줄을 추가하여 링크 섹션을 보여줍니다.
                 notionSection.classList.remove('hidden');
                 welcomeMessage.textContent = `${user.displayName}님, 환영합니다!`;
                 authButton.textContent = '로그아웃';
