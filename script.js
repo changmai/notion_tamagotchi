@@ -144,6 +144,8 @@ const loadUserData = async (user) => {
             databaseSelect.value = selectedDbId;
             await loadProperties();
             propertySelect.value = propertyName;
+            // *** FIX: Immediately update EXP on load without showing an alert ***
+            await saveSettingsAndRefreshExp(false);
         }
     }
 };
@@ -166,7 +168,7 @@ const loadDatabases = async () => {
             });
             databaseSelect.disabled = false;
         } else {
-            databaseSelect.innerHTML = '<option>공유된 데이터베이스가 없습니다.</option>';
+            databaseSelect.innerHTML = '<option>연동된 데이터베이스가 없습니다.</option>';
         }
     } catch (error) {
         console.error("데이터베이스 목록 로드 실패:", error);
@@ -190,7 +192,7 @@ const loadProperties = async () => {
         const result = await getDatabaseProperties({ databaseId: selectedDbId });
         const { properties } = result.data;
         if (properties && properties.length > 0) {
-            propertySelect.innerHTML = '';
+            propertySelect.innerHTML = '<option value="">-- 속성 선택 --</option>';
             properties.forEach(propName => {
                 const option = document.createElement('option');
                 option.value = propName;
@@ -200,7 +202,7 @@ const loadProperties = async () => {
             propertySelect.disabled = false;
             startButton.disabled = false;
         } else {
-            propertySelect.innerHTML = '<option>계산할 숫자/함수 속성이 없습니다.</option>';
+            propertySelect.innerHTML = '<option>계산할 숫자/수식 속성이 없습니다.</option>';
         }
     } catch (error) {
         console.error("속성 목록 로드 실패:", error);
@@ -246,7 +248,9 @@ const saveSettingsAndRefreshExp = async (showAlert = true) => {
         }
     } catch (error) {
         console.error("경험치 업데이트 실패:", error);
-        alert(`오류: ${error.message}`);
+        if (showAlert) {
+            alert(`오류: ${error.message}`);
+        }
     } finally {
         startButton.textContent = "설정 저장 및 즉시 업데이트";
         startButton.disabled = false;
@@ -276,7 +280,7 @@ const getTamagotchiDetailsByExp = (exp) => {
 const updateTamagotchiVisuals = (exp) => {
     const { level, levelName, maxExp, color } = getTamagotchiDetailsByExp(exp);
     
-    tamagotchiImage.src = `https://placehold.co/150x150/${color.substring(1)}/FFF?text=Lvl${level}`;
+    tamagotchiImage.src = `https://placehold.co/150x150/${color.substring(1)}/FFF?text=Lvl${level}.gif`;
     tamagotchiLevel.textContent = `Level ${level}: ${levelName}`;
     expDisplay.textContent = exp;
     expBar.style.width = `${Math.min((exp / maxExp) * 100, 100)}%`;
@@ -285,36 +289,14 @@ const updateTamagotchiVisuals = (exp) => {
 // 14. 링크 복사 함수
 const copyEmbedLink = () => {
     const linkToCopy = embedLinkInput.value;
-    if (navigator.clipboard && navigator.clipboard.writeText) {
-        navigator.clipboard.writeText(linkToCopy).then(() => {
-            copyStatus.textContent = "✅ 복사 완료!";
-            setTimeout(() => { copyStatus.textContent = ""; }, 2000);
-        }).catch(() => fallbackCopyTextToClipboard(linkToCopy));
-    } else {
-        fallbackCopyTextToClipboard(linkToCopy);
-    }
-};
-
-function fallbackCopyTextToClipboard(text) {
-    const textArea = document.createElement("textarea");
-    textArea.value = text;
-    textArea.style.position = "fixed";
-    textArea.style.top = "0";
-    textArea.style.left = "0";
-    document.body.appendChild(textArea);
-    textArea.focus();
-    textArea.select();
-    try {
-        if (document.execCommand('copy')) {
-            copyStatus.textContent = "✅ 복사 완료!";
-            setTimeout(() => { copyStatus.textContent = ""; }, 2000);
-        }
-    } catch (err) {
+    navigator.clipboard.writeText(linkToCopy).then(() => {
+        copyStatus.textContent = "✅ 복사 완료!";
+        setTimeout(() => { copyStatus.textContent = ""; }, 2000);
+    }).catch(err => {
+        console.error('클립보드 복사 실패: ', err);
         copyStatus.textContent = "복사 실패. 직접 복사해주세요.";
-        copyStatus.classList.add('text-red-600');
-    }
-    document.body.removeChild(textArea);
-}
+    });
+};
 
 // 15. 앱 시작 로직
 const mainApp = async () => {
@@ -333,7 +315,6 @@ const mainApp = async () => {
                 
                 notionConnectButton.onclick = connectToNotion;
                 databaseSelect.onchange = loadProperties;
-                startButton.textContent = "설정 저장 및 즉시 업데이트";
                 startButton.onclick = saveSettingsAndRefreshExp;
                 copyLinkButton.onclick = copyEmbedLink;
 
