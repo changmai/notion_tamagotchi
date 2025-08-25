@@ -255,15 +255,19 @@ const startExperienceCalculation = async (showAlert = true) => {
         }
     };
     
-    await updateExp(); // 먼저 한 번 즉시 실행
-    expUpdateInterval = setInterval(updateExp, 60000); // 1분마다 반복
+    await updateExp();
+    expUpdateInterval = setInterval(updateExp, 60000);
     if (showAlert) {
         alert("설정이 저장되었고, 자동 업데이트가 시작되었습니다.");
     }
 };
 
-// 13. 다마고치 시각화 업데이트 (10단계 로직)
-const updateTamagotchiVisuals = (exp) => {
+/**
+ * 경험치(EXP)에 따라 다마고치의 시각적 정보를 반환하는 헬퍼 함수
+ * @param {number} exp 현재 경험치
+ * @return {{level: number, levelName: string, maxExp: number, color: string}} 다마고치 상세 정보
+ */
+const getTamagotchiDetailsByExp = (exp) => {
     let level = 1, levelName = "알", maxExp = 100, color = "#A0AEC0";
 
     if (exp >= 5000) { level = 10; levelName = "전설"; maxExp = 10000; color = "#F59E0B"; }
@@ -273,15 +277,21 @@ const updateTamagotchiVisuals = (exp) => {
     else if (exp >= 1500) { level = 6; levelName = "성장기"; maxExp = 2200; color = "#10B981"; }
     else if (exp >= 900) { level = 5; levelName = "유년기2"; maxExp = 1500; color = "#EC4899"; }
     else if (exp >= 400) { level = 4; levelName = "유년기1"; maxExp = 900; color = "#F97316"; }
-    else if (exp >= 100) { level = 3; levelName = "유아기"; maxExp = 400; color = "#14B8A6"; }
+    else if (exp >= 100) { level = 3; levelName = "유아기"; maxExp = 400, color = "#14B8A6"; }
     else if (exp > 0) { level = 2; levelName = "새싹"; maxExp = 100; color = "#84CC16"; }
     
-    tamagotchiImage.src = `https://placehold.co/150x150/${color.substring(1)}/FFF?text=Lvl${level}.gif`;
+    return { level, levelName, maxExp, color };
+};
+
+// 13. 다마고치 시각화 업데이트
+const updateTamagotchiVisuals = (exp) => {
+    const { level, levelName, maxExp, color } = getTamagotchiDetailsByExp(exp);
+    
+    tamagotchiImage.src = `https://placehold.co/150x150/${color.substring(1)}/FFF?text=Lvl${level}`;
     tamagotchiLevel.textContent = `Level ${level}: ${levelName}`;
     expDisplay.textContent = exp;
     expBar.style.width = `${Math.min((exp / maxExp) * 100, 100)}%`;
 };
-
 
 // 14. 링크 복사 함수
 const copyEmbedLink = () => {
@@ -324,9 +334,8 @@ const mainApp = async () => {
         
         onAuthStateChanged(auth, (user) => {
             if (user) {
-                // 로그인 UI 업데이트
                 gameSection.classList.remove('hidden');
-                embedSection.classList.remove('hidden'); // *** FIX ***: 이 줄을 추가하여 링크 섹션을 보여줍니다.
+                embedSection.classList.remove('hidden');
                 notionSection.classList.remove('hidden');
                 welcomeMessage.textContent = `${user.displayName}님, 환영합니다!`;
                 authButton.textContent = '로그아웃';
@@ -337,7 +346,6 @@ const mainApp = async () => {
                 startButton.onclick = startExperienceCalculation;
                 copyLinkButton.onclick = copyEmbedLink;
 
-                // 기능 로직 실행
                 listenToTamagotchiState(user);
                 handleNotionCallback(user);
                 loadUserData(user);
@@ -346,7 +354,6 @@ const mainApp = async () => {
                 embedLinkInput.value = imageUrl;
 
             } else {
-                // 로그아웃 UI 업데이트
                 welcomeMessage.textContent = '로그인하여 다마고치를 키워보세요!';
                 authButton.textContent = '구글 계정으로 시작하기';
                 authStatus.classList.add('hidden');
