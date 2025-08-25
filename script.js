@@ -46,7 +46,6 @@ const NOTION_REDIRECT_URI = "https://notiontamagotchi.netlify.app";
 const welcomeMessage = document.getElementById('welcomeMessage');
 const authButton = document.getElementById('authButton');
 const authStatus = document.getElementById('authStatus');
-const loadingOverlay = document.getElementById('loadingOverlay');
 const notionSection = document.getElementById('notionSection');
 const notionConnectButton = document.getElementById('notionConnectButton');
 const notionStatus = document.getElementById('notionStatus');
@@ -59,13 +58,13 @@ const tamagotchiImage = document.getElementById('tamagotchiImage');
 const tamagotchiLevel = document.getElementById('tamagotchiLevel');
 const expDisplay = document.getElementById('expDisplay');
 const expBar = document.getElementById('expBar');
-const autoUpdateStatus = document.getElementById('autoUpdateStatus');
 const embedSection = document.getElementById('embedSection');
 const embedLinkInput = document.getElementById('embedLinkInput');
 const copyLinkButton = document.getElementById('copyLinkButton');
 const copyStatus = document.getElementById('copyStatus');
 
 let tamagotchiStateUnsubscribe = null;
+let expUpdateInterval = null;
 
 // 5. 로그인/로그아웃 함수
 const signIn = () => {
@@ -79,6 +78,7 @@ const signIn = () => {
 };
 
 const logOut = () => {
+    clearInterval(expUpdateInterval);
     if (tamagotchiStateUnsubscribe) tamagotchiStateUnsubscribe();
     signOut(auth).catch((error) => console.error("로그아웃 실패:", error));
 };
@@ -134,26 +134,20 @@ const updateNotionUI = (isConnected) => {
 // 9. 사용자 데이터 로드
 const loadUserData = async (user) => {
     if (!user) return;
-    loadingOverlay.style.display = 'flex';
-    try {
-        const tokenDocRef = doc(db, "users", user.uid, "notion", "token");
-        const tokenSnap = await getDoc(tokenDocRef);
-        if (tokenSnap.exists()) {
-            updateNotionUI(true);
-            await loadDatabases();
-            const settingsDocRef = doc(db, "users", user.uid, "notion", "settings");
-            const settingsSnap = await getDoc(settingsDocRef);
-            if (settingsSnap.exists()) {
-                const { selectedDbId, propertyName } = settingsSnap.data();
-                databaseSelect.value = selectedDbId;
-                await loadProperties();
-                propertySelect.value = propertyName;
-            }
+    const tokenDocRef = doc(db, "users", user.uid, "notion", "token");
+    const tokenSnap = await getDoc(tokenDocRef);
+    if (tokenSnap.exists()) {
+        updateNotionUI(true);
+        await loadDatabases();
+        const settingsDocRef = doc(db, "users", user.uid, "notion", "settings");
+        const settingsSnap = await getDoc(settingsDocRef);
+        if (settingsSnap.exists()) {
+            const { selectedDbId, propertyName } = settingsSnap.data();
+            databaseSelect.value = selectedDbId;
+            await loadProperties();
+            propertySelect.value = propertyName;
+            startExperienceCalculation(false);
         }
-    } catch (error) {
-        console.error("사용자 데이터 로드 중 오류:", error);
-    } finally {
-        loadingOverlay.style.display = 'none';
     }
 };
 
@@ -223,19 +217,17 @@ const listenToTamagotchiState = (user) => {
     const stateDocRef = doc(db, "users", user.uid, "tamagotchi", "state");
     tamagotchiStateUnsubscribe = onSnapshot(stateDocRef, (docSnap) => {
         if (docSnap.exists()) {
-            console.log("Firestore에서 실시간 업데이트를 감지했습니다!");
-            const { totalExp, daysOfStagnation = 0 } = docSnap.data();
-            updateTamagotchiVisuals(totalExp, daysOfStagnation);
-            autoUpdateStatus.textContent = "1분마다 자동 업데이트 활성화 ✅";
+            const { totalExp } = docSnap.data();
+            updateTamagotchiVisuals(totalExp);
         } else {
-            updateTamagotchiVisuals(0, 0);
-            autoUpdateStatus.textContent = "설정을 저장하면 자동 업데이트가 시작됩니다.";
+            updateTamagotchiVisuals(0);
         }
     });
 };
 
 // 12. 경험치 계산 시작
-const startExperienceCalculation = async () => {
+const startExperienceCalculation = async (showAlert = true) => {
+    clearInterval(expUpdateInterval);
     const selectedDbId = databaseSelect.value;
     const propertyName = propertySelect.value;
     if (!selectedDbId || !propertyName) {
@@ -246,22 +238,32 @@ const startExperienceCalculation = async () => {
         const settingsDocRef = doc(db, "users", user.uid, "notion", "settings");
         await setDoc(settingsDocRef, { selectedDbId, propertyName });
     }
-    startButton.textContent = "업데이트 요청 중...";
-    startButton.disabled = true;
-    try {
-        const calculateExperience = httpsCallable(functions, 'calculateExperience');
-        await calculateExperience();
-        alert("설정이 저장되었고, 즉시 경험치를 업데이트했습니다. 이제 서버에서 자동으로 업데이트됩니다.");
-    } catch (error) {
-        alert(`오류: ${error.message}`);
-    } finally {
-        startButton.textContent = "설정 저장 및 업데이트 시작";
-        startButton.disabled = false;
+    
+    const updateExp = async () => {
+        startButton.textContent = "업데이트 요청 중...";
+        startButton.disabled = true;
+        try {
+            const calculateExperience = httpsCallable(functions, 'calculateExperience');
+            await calculateExperience({ databaseId: selectedDbId, propertyName: propertyName });
+        } catch (error) {
+            console.error("경험치 계산 실패:", error);
+            clearInterval(expUpdateInterval);
+            alert(`오류: ${error.message}`);
+        } finally {
+            startButton.textContent = "설정 저장 및 업데이트 시작";
+            startButton.disabled = false;
+        }
+    };
+    
+    await updateExp(); // 먼저 한 번 즉시 실행
+    expUpdateInterval = setInterval(updateExp, 60000); // 1분마다 반복
+    if (showAlert) {
+        alert("설정이 저장되었고, 자동 업데이트가 시작되었습니다.");
     }
 };
 
-// 13. 다마고치 시각화 업데이트
-const updateTamagotchiVisuals = (exp, daysOfStagnation) => {
+// 13. 다마고치 시각화 업데이트 (10단계 로직)
+const updateTamagotchiVisuals = (exp) => {
     let level = 1, levelName = "알", maxExp = 100, color = "#A0AEC0";
 
     if (exp >= 5000) { level = 10; levelName = "전설"; maxExp = 10000; color = "#F59E0B"; }
@@ -274,17 +276,12 @@ const updateTamagotchiVisuals = (exp, daysOfStagnation) => {
     else if (exp >= 100) { level = 3; levelName = "유아기"; maxExp = 400; color = "#14B8A6"; }
     else if (exp > 0) { level = 2; levelName = "새싹"; maxExp = 100; color = "#84CC16"; }
     
-    if (daysOfStagnation >= 10) {
-        levelName = "RIP"; color = '#1F2937';
-    } else if (daysOfStagnation >= 1) {
-        levelName += " (아픔)"; color = '#78716C';
-    }
-
-    tamagotchiImage.src = `https://placehold.co/150x150/${color.substring(1)}/FFF?text=${levelName}`;
+    tamagotchiImage.src = `https://placehold.co/150x150/${color.substring(1)}/FFF?text=Lvl${level}.gif`;
     tamagotchiLevel.textContent = `Level ${level}: ${levelName}`;
     expDisplay.textContent = exp;
     expBar.style.width = `${Math.min((exp / maxExp) * 100, 100)}%`;
 };
+
 
 // 14. 링크 복사 함수
 const copyEmbedLink = () => {
@@ -329,7 +326,7 @@ const mainApp = async () => {
             if (user) {
                 // 로그인 UI 업데이트
                 gameSection.classList.remove('hidden');
-                embedSection.classList.remove('hidden');
+                embedSection.classList.remove('hidden'); // *** FIX ***: 이 줄을 추가하여 링크 섹션을 보여줍니다.
                 notionSection.classList.remove('hidden');
                 welcomeMessage.textContent = `${user.displayName}님, 환영합니다!`;
                 authButton.textContent = '로그아웃';
@@ -358,7 +355,6 @@ const mainApp = async () => {
                 embedSection.classList.add('hidden');
                 notionSection.classList.add('hidden');
                 databaseSection.classList.add('hidden');
-                autoUpdateStatus.textContent = "";
             }
         });
 
