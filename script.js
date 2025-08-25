@@ -64,7 +64,6 @@ const copyLinkButton = document.getElementById('copyLinkButton');
 const copyStatus = document.getElementById('copyStatus');
 
 let tamagotchiStateUnsubscribe = null;
-let expUpdateInterval = null;
 
 // 5. 로그인/로그아웃 함수
 const signIn = () => {
@@ -78,7 +77,6 @@ const signIn = () => {
 };
 
 const logOut = () => {
-    clearInterval(expUpdateInterval);
     if (tamagotchiStateUnsubscribe) tamagotchiStateUnsubscribe();
     signOut(auth).catch((error) => console.error("로그아웃 실패:", error));
 };
@@ -106,9 +104,10 @@ const handleNotionCallback = async (user) => {
         window.history.replaceState({}, document.title, window.location.pathname);
         try {
             const exchangeCodeForToken = httpsCallable(functions, 'exchangeCodeForToken');
-            const tokenData = await exchangeCodeForToken({ code: notionCode, redirectUri: NOTION_REDIRECT_URI });
+            const tokenResult = await exchangeCodeForToken({ code: notionCode, redirectUri: NOTION_REDIRECT_URI });
+            const tokenData = tokenResult.data;
             const tokenDocRef = doc(db, "users", user.uid, "notion", "token");
-            await setDoc(tokenDocRef, tokenData.data);
+            await setDoc(tokenDocRef, tokenData);
             updateNotionUI(true);
             loadDatabases();
         } catch (error) {
@@ -146,7 +145,6 @@ const loadUserData = async (user) => {
             databaseSelect.value = selectedDbId;
             await loadProperties();
             propertySelect.value = propertyName;
-            startExperienceCalculation(false);
         }
     }
 };
@@ -216,56 +214,45 @@ const listenToTamagotchiState = (user) => {
     if (tamagotchiStateUnsubscribe) tamagotchiStateUnsubscribe();
     const stateDocRef = doc(db, "users", user.uid, "tamagotchi", "state");
     tamagotchiStateUnsubscribe = onSnapshot(stateDocRef, (docSnap) => {
-        if (docSnap.exists()) {
-            const { totalExp } = docSnap.data();
-            updateTamagotchiVisuals(totalExp);
-        } else {
-            updateTamagotchiVisuals(0);
-        }
+        const totalExp = docSnap.exists() ? docSnap.data().totalExp : 0;
+        updateTamagotchiVisuals(totalExp);
     });
 };
 
-// 12. 경험치 계산 시작
+// 12. 초기 경험치 계산 시작
 const startExperienceCalculation = async (showAlert = true) => {
-    clearInterval(expUpdateInterval);
     const selectedDbId = databaseSelect.value;
     const propertyName = propertySelect.value;
     if (!selectedDbId || !propertyName) {
         return alert("데이터베이스와 속성을 모두 선택해주세요!");
     }
+    
     const user = auth.currentUser;
     if (user) {
         const settingsDocRef = doc(db, "users", user.uid, "notion", "settings");
         await setDoc(settingsDocRef, { selectedDbId, propertyName });
     }
     
-    const updateExp = async () => {
-        startButton.textContent = "업데이트 요청 중...";
-        startButton.disabled = true;
-        try {
-            const calculateExperience = httpsCallable(functions, 'calculateExperience');
-            await calculateExperience({ databaseId: selectedDbId, propertyName: propertyName });
-        } catch (error) {
-            console.error("경험치 계산 실패:", error);
-            clearInterval(expUpdateInterval);
-            alert(`오류: ${error.message}`);
-        } finally {
-            startButton.textContent = "설정 저장 및 업데이트 시작";
-            startButton.disabled = false;
+    startButton.textContent = "초기화 및 설정 중...";
+    startButton.disabled = true;
+    try {
+        const initializeExperience = httpsCallable(functions, 'initializeExperience');
+        await initializeExperience({ databaseId: selectedDbId, propertyName: propertyName });
+        
+        if (showAlert) {
+            alert("설정이 저장되었습니다! 이제 Notion에서 데이터베이스를 수정하면 자동으로 경험치가 업데이트됩니다.");
         }
-    };
-    
-    await updateExp();
-    expUpdateInterval = setInterval(updateExp, 60000);
-    if (showAlert) {
-        alert("설정이 저장되었고, 자동 업데이트가 시작되었습니다.");
+    } catch (error) {
+        console.error("초기 경험치 설정 실패:", error);
+        alert(`오류: ${error.message}`);
+    } finally {
+        startButton.textContent = "설정 저장 및 초기화";
+        startButton.disabled = false;
     }
 };
 
 /**
  * 경험치(EXP)에 따라 다마고치의 시각적 정보를 반환하는 헬퍼 함수
- * @param {number} exp 현재 경험치
- * @return {{level: number, levelName: string, maxExp: number, color: string}} 다마고치 상세 정보
  */
 const getTamagotchiDetailsByExp = (exp) => {
     let level = 1, levelName = "알", maxExp = 100, color = "#A0AEC0";
@@ -296,36 +283,14 @@ const updateTamagotchiVisuals = (exp) => {
 // 14. 링크 복사 함수
 const copyEmbedLink = () => {
     const linkToCopy = embedLinkInput.value;
-    if (navigator.clipboard && navigator.clipboard.writeText) {
-        navigator.clipboard.writeText(linkToCopy).then(() => {
-            copyStatus.textContent = "✅ 복사 완료!";
-            setTimeout(() => { copyStatus.textContent = ""; }, 2000);
-        }).catch(() => fallbackCopyTextToClipboard(linkToCopy));
-    } else {
-        fallbackCopyTextToClipboard(linkToCopy);
-    }
+    navigator.clipboard.writeText(linkToCopy).then(() => {
+        copyStatus.textContent = "✅ 복사 완료!";
+        setTimeout(() => { copyStatus.textContent = ""; }, 2000);
+    }).catch(err => {
+        console.error('클립보드 복사 실패: ', err);
+        copyStatus.textContent = "복사에 실패했습니다.";
+    });
 };
-
-function fallbackCopyTextToClipboard(text) {
-    const textArea = document.createElement("textarea");
-    textArea.value = text;
-    textArea.style.position = "fixed";
-    textArea.style.top = "0";
-    textArea.style.left = "0";
-    document.body.appendChild(textArea);
-    textArea.focus();
-    textArea.select();
-    try {
-        if (document.execCommand('copy')) {
-            copyStatus.textContent = "✅ 복사 완료!";
-            setTimeout(() => { copyStatus.textContent = ""; }, 2000);
-        }
-    } catch (err) {
-        copyStatus.textContent = "복사 실패. 직접 복사해주세요.";
-        copyStatus.classList.add('text-red-600');
-    }
-    document.body.removeChild(textArea);
-}
 
 // 15. 앱 시작 로직
 const mainApp = async () => {
