@@ -64,7 +64,6 @@ const copyLinkButton = document.getElementById('copyLinkButton');
 const copyStatus = document.getElementById('copyStatus');
 
 let tamagotchiStateUnsubscribe = null;
-let expUpdateInterval = null;
 
 // 5. 로그인/로그아웃 함수
 const signIn = () => {
@@ -78,7 +77,6 @@ const signIn = () => {
 };
 
 const logOut = () => {
-    clearInterval(expUpdateInterval);
     if (tamagotchiStateUnsubscribe) tamagotchiStateUnsubscribe();
     signOut(auth).catch((error) => console.error("로그아웃 실패:", error));
 };
@@ -146,7 +144,6 @@ const loadUserData = async (user) => {
             databaseSelect.value = selectedDbId;
             await loadProperties();
             propertySelect.value = propertyName;
-            startExperienceCalculation(false);
         }
     }
 };
@@ -225,47 +222,39 @@ const listenToTamagotchiState = (user) => {
     });
 };
 
-// 12. 경험치 계산 시작
-const startExperienceCalculation = async (showAlert = true) => {
-    clearInterval(expUpdateInterval);
+// 12. 설정 저장 및 즉시 업데이트
+const saveSettingsAndRefreshExp = async (showAlert = true) => {
     const selectedDbId = databaseSelect.value;
     const propertyName = propertySelect.value;
     if (!selectedDbId || !propertyName) {
         return alert("데이터베이스와 속성을 모두 선택해주세요!");
     }
+
     const user = auth.currentUser;
     if (user) {
         const settingsDocRef = doc(db, "users", user.uid, "notion", "settings");
         await setDoc(settingsDocRef, { selectedDbId, propertyName });
     }
     
-    const updateExp = async () => {
-        startButton.textContent = "업데이트 요청 중...";
-        startButton.disabled = true;
-        try {
-            const calculateExperience = httpsCallable(functions, 'calculateExperience');
-            await calculateExperience({ databaseId: selectedDbId, propertyName: propertyName });
-        } catch (error) {
-            console.error("경험치 계산 실패:", error);
-            clearInterval(expUpdateInterval);
-            alert(`오류: ${error.message}`);
-        } finally {
-            startButton.textContent = "설정 저장 및 업데이트 시작";
-            startButton.disabled = false;
+    startButton.textContent = "업데이트 요청 중...";
+    startButton.disabled = true;
+    try {
+        const calculateExperience = httpsCallable(functions, 'calculateExperience');
+        await calculateExperience({ databaseId: selectedDbId, propertyName: propertyName });
+        if (showAlert) {
+            alert("설정이 저장되었습니다! 이제 서버에서 1분마다 자동 업데이트됩니다.");
         }
-    };
-    
-    await updateExp();
-    expUpdateInterval = setInterval(updateExp, 60000);
-    if (showAlert) {
-        alert("설정이 저장되었고, 자동 업데이트가 시작되었습니다.");
+    } catch (error) {
+        console.error("경험치 업데이트 실패:", error);
+        alert(`오류: ${error.message}`);
+    } finally {
+        startButton.textContent = "설정 저장 및 즉시 업데이트";
+        startButton.disabled = false;
     }
 };
 
 /**
  * 경험치(EXP)에 따라 다마고치의 시각적 정보를 반환하는 헬퍼 함수
- * @param {number} exp 현재 경험치
- * @return {{level: number, levelName: string, maxExp: number, color: string}} 다마고치 상세 정보
  */
 const getTamagotchiDetailsByExp = (exp) => {
     let level = 1, levelName = "알", maxExp = 100, color = "#A0AEC0";
@@ -339,11 +328,13 @@ const mainApp = async () => {
                 notionSection.classList.remove('hidden');
                 welcomeMessage.textContent = `${user.displayName}님, 환영합니다!`;
                 authButton.textContent = '로그아웃';
-                authStatus.classList.add('hidden');
                 authButton.onclick = logOut;
+                authStatus.classList.add('hidden');
+                
                 notionConnectButton.onclick = connectToNotion;
                 databaseSelect.onchange = loadProperties;
-                startButton.onclick = startExperienceCalculation;
+                startButton.textContent = "설정 저장 및 즉시 업데이트";
+                startButton.onclick = saveSettingsAndRefreshExp;
                 copyLinkButton.onclick = copyEmbedLink;
 
                 listenToTamagotchiState(user);
@@ -356,8 +347,8 @@ const mainApp = async () => {
             } else {
                 welcomeMessage.textContent = '로그인하여 다마고치를 키워보세요!';
                 authButton.textContent = '구글 계정으로 시작하기';
-                authStatus.classList.add('hidden');
                 authButton.onclick = signIn;
+                authStatus.classList.add('hidden');
                 gameSection.classList.add('hidden');
                 embedSection.classList.add('hidden');
                 notionSection.classList.add('hidden');
