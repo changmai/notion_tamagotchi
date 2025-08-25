@@ -152,8 +152,64 @@ const loadUserData = async (user) => {
 };
 
 // 10. 데이터베이스 및 속성 로드
-const loadDatabases = async () => { /* ... 이전과 동일 ... */ };
-const loadProperties = async () => { /* ... 이전과 동일 ... */ };
+const loadDatabases = async () => {
+    databaseSelect.innerHTML = '<option>데이터베이스 목록을 불러오는 중...</option>';
+    databaseSelect.disabled = true;
+    try {
+        const getNotionDatabases = httpsCallable(functions, 'getNotionDatabases');
+        const result = await getNotionDatabases();
+        const { databases } = result.data;
+        if (databases && databases.length > 0) {
+            databaseSelect.innerHTML = '<option value="">-- 데이터베이스 선택 --</option>';
+            databases.forEach(db => {
+                const option = document.createElement('option');
+                option.value = db.id;
+                option.textContent = db.title;
+                databaseSelect.appendChild(option);
+            });
+            databaseSelect.disabled = false;
+        } else {
+            databaseSelect.innerHTML = '<option>공유된 데이터베이스가 없습니다.</option>';
+        }
+    } catch (error) {
+        console.error("데이터베이스 목록 로드 실패:", error);
+        databaseSelect.innerHTML = `<option>오류: ${error.message}</option>`;
+    }
+};
+
+const loadProperties = async () => {
+    const selectedDbId = databaseSelect.value;
+    if (!selectedDbId) {
+        propertySelect.innerHTML = '<option>먼저 데이터베이스를 선택하세요.</option>';
+        propertySelect.disabled = true;
+        startButton.disabled = true;
+        return;
+    }
+    propertySelect.innerHTML = '<option>속성 목록 불러오는 중...</option>';
+    propertySelect.disabled = true;
+    startButton.disabled = true;
+    try {
+        const getDatabaseProperties = httpsCallable(functions, 'getDatabaseProperties');
+        const result = await getDatabaseProperties({ databaseId: selectedDbId });
+        const { properties } = result.data;
+        if (properties && properties.length > 0) {
+            propertySelect.innerHTML = '';
+            properties.forEach(propName => {
+                const option = document.createElement('option');
+                option.value = propName;
+                option.textContent = propName;
+                propertySelect.appendChild(option);
+            });
+            propertySelect.disabled = false;
+            startButton.disabled = false;
+        } else {
+            propertySelect.innerHTML = '<option>계산할 숫자/함수 속성이 없습니다.</option>';
+        }
+    } catch (error) {
+        console.error("속성 목록 로드 실패:", error);
+        propertySelect.innerHTML = `<option>오류: ${error.message}</option>`;
+    }
+};
 
 // 11. 다마고치 상태 실시간 감지
 const listenToTamagotchiState = (user) => {
