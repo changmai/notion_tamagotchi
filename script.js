@@ -138,7 +138,8 @@ const loadUserData = async (user) => {
     if (tokenSnap.exists()) {
         updateNotionUI(true);
         await loadDatabases();
-        const settingsDocRef = doc(db, "users", user.uid, "notion", "settings");
+        // [수정] settings 문서 경로 변경
+        const settingsDocRef = doc(db, "users", user.uid, "settings", "config");
         const settingsSnap = await getDoc(settingsDocRef);
         if (settingsSnap.exists()) {
             const { selectedDbId, propertyName } = settingsSnap.data();
@@ -229,7 +230,8 @@ const startExperienceCalculation = async (showAlert = true) => {
     
     const user = auth.currentUser;
     if (user) {
-        const settingsDocRef = doc(db, "users", user.uid, "notion", "settings");
+        // [수정] settings 문서 경로 변경
+        const settingsDocRef = doc(db, "users", user.uid, "settings", "config");
         await setDoc(settingsDocRef, { selectedDbId, propertyName });
     }
     
