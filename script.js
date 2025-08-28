@@ -389,6 +389,13 @@ const ui_functions = {
                 elements.loginSection.classList.remove('hidden');
                 elements.userInfo.classList.add('hidden');
                 elements.settingsContainer?.classList.add('hidden');
+                
+                // ▼▼▼▼▼ 이 부분이 추가되었습니다 ▼▼▼▼▼
+                if (elements.authButton) {
+                    elements.authButton.onclick = auth_functions.signIn;
+                }
+                // ▲▲▲▲▲ 이 부분이 추가되었습니다 ▲▲▲▲▲
+
             } else {
                 if (elements.welcomeMessage) {
                     elements.welcomeMessage.textContent = '로그인하여 다마고치를 키워보세요!';
@@ -481,7 +488,7 @@ const ui_functions = {
         
         const shareData = {
             title: 'Notion 다마고치',
-            text: 'Notion으로 다마고치를 키우며 생산성을 높여보세요!',
+            text: 'Notion으로 다마고치를 키하며 생산성을 높여보세요!',
             url: window.location.href
         };
 
