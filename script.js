@@ -346,6 +346,9 @@ const ui_functions = {
                 elements.loginSection.classList.remove('hidden');
                 elements.userInfo.classList.add('hidden');
                 elements.settingsContainer?.classList.add('hidden');
+                 // 👇 이 코드를 추가해 주세요!
+                if (elements.authButton) {
+                    elements.authButton.onclick = auth_functions.signIn;
             }
             
             if (elements.gameSection) elements.gameSection.classList.add('hidden');
@@ -696,3 +699,4 @@ const app_functions = {
 
 // 앱 시작
 app_functions.initialize();
+
