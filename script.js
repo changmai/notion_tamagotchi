@@ -401,29 +401,134 @@ const ui_functions = {
         }
     },
 
-    shareImage: async () => {
-        if (!currentUser) return;
+    // 개선된 공유 함수
+shareImage: async () => {
+    if (!currentUser) return;
+    
+    try {
+        const appUrl = window.location.origin; // 앱 URL
+        const imageUrl = `https://asia-northeast3-notion-tamagotchi.cloudfunctions.net/serveTamagotchiImage?uid=${currentUser.uid}`;
         
+        // 현재 다마고치 정보 가져오기
+        const stateDocRef = doc(db, "users", currentUser.uid, "tamagotchi", "state");
+        const stateSnap = await getDoc(stateDocRef);
+        const totalExp = stateSnap.exists() ? stateSnap.data().totalExp || 0 : 0;
+        const { level, levelName } = tamagotchi_functions.getDetailsByExp(totalExp);
+        
+        const shareData = {
+            title: `내 Notion 다마고치 - Level ${level}: ${levelName}`,
+            text: `내 다마고치가 Level ${level} (${levelName})까지 성장했어요! 경험치: ${totalExp} EXP`,
+            url: appUrl // 앱 자체 URL로 공유
+        };
+
+        // Web Share API 지원 여부 확인 및 실행
+        if (navigator.share && navigator.canShare && navigator.canShare(shareData)) {
+            await navigator.share(shareData);
+            utils.showToast("공유되었습니다!", 'success');
+        } else {
+            // 폴백: 공유 옵션 모달 표시
+            showShareModal(shareData, imageUrl);
+        }
+        
+    } catch (error) {
+        if (error.name === 'AbortError') {
+            // 사용자가 공유를 취소한 경우 (정상적인 동작)
+            return;
+        }
+        console.error("공유 실패:", error);
+        
+        // 폴백: 클립보드에 텍스트 복사
         try {
-            const imageUrl = `https://asia-northeast3-notion-tamagotchi.cloudfunctions.net/serveTamagotchiImage?uid=${currentUser.uid}`;
-            
-            if (navigator.share) {
-                await navigator.share({
-                    title: '내 Notion 다마고치',
-                    text: '내 다마고치를 확인해보세요!',
-                    url: imageUrl
-                });
-            } else {
-                // 폴백: 클립보드에 복사
-                await navigator.clipboard.writeText(imageUrl);
-                utils.showToast("이미지 링크가 복사되었습니다!", 'success');
-            }
-        } catch (error) {
-            console.error("공유 실패:", error);
+            const shareText = `내 다마고치가 Level ${level} (${levelName})까지 성장했어요! ${appUrl}`;
+            await navigator.clipboard.writeText(shareText);
+            utils.showToast("공유 텍스트가 복사되었습니다!", 'success');
+        } catch (clipboardError) {
             utils.showToast("공유에 실패했습니다.", 'error');
         }
     }
-};
+},
+
+// 공유 모달 표시 함수 (폴백용)
+showShareModal: (shareData, imageUrl) => {
+    const modal = document.createElement('div');
+    modal.className = 'fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center z-50';
+    modal.innerHTML = `
+        <div class="bg-white rounded-2xl p-6 max-w-sm w-full mx-4 shadow-2xl">
+            <h3 class="text-lg font-bold text-gray-800 mb-4 text-center">다마고치 공유하기</h3>
+            
+            <div class="space-y-3">
+                <!-- 텍스트 복사 -->
+                <button onclick="copyShareText()" class="w-full flex items-center justify-center bg-blue-500 hover:bg-blue-600 text-white py-3 px-4 rounded-xl transition">
+                    <svg class="w-5 h-5 mr-2" fill="currentColor" viewBox="0 0 20 20">
+                        <path d="M8 3a1 1 0 011-1h2a1 1 0 110 2H9a1 1 0 01-1-1z"/>
+                        <path d="M6 3a2 2 0 00-2 2v11a2 2 0 002 2h8a2 2 0 002-2V5a2 2 0 00-2-2 3 3 0 01-3 3H9a3 3 0 01-3-3z"/>
+                    </svg>
+                    텍스트 복사
+                </button>
+                
+                <!-- 이미지 링크 복사 -->
+                <button onclick="copyImageLink()" class="w-full flex items-center justify-center bg-purple-500 hover:bg-purple-600 text-white py-3 px-4 rounded-xl transition">
+                    <svg class="w-5 h-5 mr-2" fill="currentColor" viewBox="0 0 20 20">
+                        <path fill-rule="evenodd" d="M4 3a2 2 0 00-2 2v10a2 2 0 002 2h12a2 2 0 002-2V5a2 2 0 00-2-2H4zm12 12H4l4-8 3 6 2-4 3 6z" clip-rule="evenodd"/>
+                    </svg>
+                    이미지 링크 복사
+                </button>
+                
+                <!-- 카카오톡 공유 (만약 지원한다면) -->
+                <button onclick="shareToKakao()" class="w-full flex items-center justify-center bg-yellow-400 hover:bg-yellow-500 text-gray-800 py-3 px-4 rounded-xl transition">
+                    <span class="mr-2">💬</span>
+                    카카오톡 공유
+                </button>
+            </div>
+            
+            <button onclick="closeModal()" class="w-full mt-4 bg-gray-200 hover:bg-gray-300 text-gray-800 py-2 px-4 rounded-xl transition">
+                닫기
+            </button>
+        </div>
+    `;
+    
+    document.body.appendChild(modal);
+    
+    // 모달 내부 함수들
+    window.copyShareText = async () => {
+        try {
+            await navigator.clipboard.writeText(`${shareData.text} ${shareData.url}`);
+            utils.showToast("공유 텍스트가 복사되었습니다!", 'success');
+            closeModal();
+        } catch (error) {
+            utils.showToast("복사에 실패했습니다.", 'error');
+        }
+    };
+    
+    window.copyImageLink = async () => {
+        try {
+            await navigator.clipboard.writeText(imageUrl);
+            utils.showToast("이미지 링크가 복사되었습니다!", 'success');
+            closeModal();
+        } catch (error) {
+            utils.showToast("복사에 실패했습니다.", 'error');
+        }
+    };
+    
+    window.shareToKakao = () => {
+        // 카카오톡 공유 API 호출 (카카오 SDK 필요)
+        utils.showToast("카카오톡 공유는 준비 중입니다.", 'info');
+    };
+    
+    window.closeModal = () => {
+        modal.remove();
+        // 전역 함수들 정리
+        delete window.copyShareText;
+        delete window.copyImageLink;
+        delete window.shareToKakao;
+        delete window.closeModal;
+    };
+    
+    // 모달 외부 클릭시 닫기
+    modal.addEventListener('click', (e) => {
+        if (e.target === modal) closeModal();
+    });
+}
 
 // 사용자 데이터 관련 함수들
 const user_functions = {
@@ -724,3 +829,4 @@ const app_functions = {
 
 // 앱 시작
 app_functions.initialize();
+
