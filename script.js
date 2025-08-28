@@ -384,9 +384,6 @@ const ui_functions = {
                 elements.embedLinkInput.value = imageUrl;
             }
 
-            // 통계 정보 로드
-            statistics_functions.loadStatistics(user);
-
         } else {
             // 로그아웃 상태
             if (elements.initialScreen && elements.loginSection && elements.userInfo) {
@@ -463,9 +460,6 @@ const ui_functions = {
                     propertyName: propertyName 
                 });
                 
-                // 통계도 다시 로드
-                await statistics_functions.loadStatistics(user);
-                
                 utils.showSuccess("데이터가 새로고침되었습니다!");
             } else {
                 utils.showError("설정을 먼저 완료해주세요.");
@@ -479,7 +473,7 @@ const ui_functions = {
         }
     },
 
-    // 개선된 공유 버튼 기능
+    // 공유 버튼 기능
     shareApp: async () => {
         const user = auth.currentUser;
         if (!user) return;
@@ -491,157 +485,39 @@ const ui_functions = {
         };
 
         try {
-            if (navigator.share && navigator.canShare && navigator.canShare(shareData)) {
-                // 모바일에서 네이티브 공유
+            if (navigator.share) {
                 await navigator.share(shareData);
             } else {
-                // PC에서 공유 모달 표시
-                ui_functions.showShareModal(shareData);
+                // Web Share API를 지원하지 않는 경우 URL 복사
+                await navigator.clipboard.writeText(shareData.url);
+                utils.showSuccess("링크가 클립보드에 복사되었습니다!");
             }
         } catch (error) {
             if (error.name !== 'AbortError') {
                 console.error('공유 실패:', error);
-                // 공유 실패시 모달 표시
-                ui_functions.showShareModal(shareData);
+                utils.showError("공유에 실패했습니다.");
             }
         }
     },
 
-    // 공유 모달 표시 함수 (PC용)
-    showShareModal: (shareData) => {
-        const modal = document.createElement('div');
-        modal.className = 'fixed inset-0 bg-black/50 flex items-center justify-center z-50';
-        modal.innerHTML = `
-            <div class="bg-white rounded-2xl p-6 max-w-md w-full mx-4 shadow-2xl">
-                <div class="text-center mb-4">
-                    <h3 class="text-xl font-bold text-gray-800 mb-2">Notion 다마고치 공유</h3>
-                    <p class="text-gray-600 text-sm">링크를 복사하여 친구들과 공유해보세요!</p>
-                </div>
-                
-                <div class="bg-gray-50 rounded-lg p-3 mb-4">
-                    <input type="text" value="${shareData.url}" readonly class="w-full bg-transparent text-sm font-mono text-gray-800 focus:outline-none">
-                </div>
-                
-                <div class="flex space-x-3">
-                    <button id="copyUrlButton" class="flex-1 bg-blue-500 hover:bg-blue-600 text-white font-semibold py-2 px-4 rounded-lg transition">
-                        링크 복사
-                    </button>
-                    <button id="closeModal" class="flex-1 bg-gray-300 hover:bg-gray-400 text-gray-800 font-semibold py-2 px-4 rounded-lg transition">
-                        닫기
-                    </button>
-                </div>
-            </div>
-        `;
-
-        document.body.appendChild(modal);
-
-        // 이벤트 리스너 추가
-        const copyButton = modal.querySelector('#copyUrlButton');
-        const closeButton = modal.querySelector('#closeModal');
-
-        copyButton.onclick = async () => {
-            try {
-                await navigator.clipboard.writeText(shareData.url);
-                copyButton.textContent = '복사 완료!';
-                copyButton.classList.remove('bg-blue-500', 'hover:bg-blue-600');
-                copyButton.classList.add('bg-green-500');
-                setTimeout(() => {
-                    modal.remove();
-                }, 1000);
-            } catch (err) {
-                console.error('복사 실패:', err);
-                copyButton.textContent = '복사 실패';
-            }
-        };
-
-        closeButton.onclick = () => {
-            modal.remove();
-        };
-
-        // 오버레이 클릭시 모달 닫기
-        modal.onclick = (e) => {
-            if (e.target === modal) {
-                modal.remove();
-            }
-        };
-    }
-};
-
-// 통계 관련 함수들 (새로 추가)
-// 통계 관련 함수들 (디버깅 강화 버전)
-const statistics_functions = {
-    loadStatistics: async (user) => {
-        if (!user) return;
-
-        console.log('통계 로드 시작:', user.uid);
-
-        try {
-            // 먼저 설정이 완료되었는지 확인
-            const settingsDocRef = doc(db, "users", user.uid, "settings", "config");
-            const settingsSnap = await getDoc(settingsDocRef);
-            
-            if (!settingsSnap.exists()) {
-                console.log('설정이 완료되지 않음, 기본값 설정');
-                // 기본값 설정
-                if (elements.totalPages) elements.totalPages.textContent = '0';
-                if (elements.todayExp) elements.todayExp.textContent = '0';
-                if (elements.currentStreak) elements.currentStreak.textContent = '0';
-                return;
-            }
-
-            console.log('설정 확인 완료, getUserStatistics 호출');
-
-            const getUserStatistics = httpsCallable(functions, 'getUserStatistics');
-            const result = await getUserStatistics();
-            
-            console.log('통계 API 응답:', result.data);
-            
-            const stats = result.data;
-
-            // 총 페이지 (완료카운팅 또는 완료된 작업 수)
-            if (elements.totalPages) {
-                elements.totalPages.textContent = stats.totalPages || 0;
-            }
-
-            // 오늘 EXP
-            if (elements.todayExp) {
-                elements.todayExp.textContent = stats.todayExp || 0;
-            }
-
-            // 연속일
-            if (elements.currentStreak) {
-                elements.currentStreak.textContent = stats.streak || 0;
-            }
-
-            // 완료카운팅 속성이 없는 경우 메시지 표시
-            if (!stats.hasCompletionCountProperty) {
-                utils.showSuccess("완료카운팅 속성이 없으므로, 완료된 페이지의 수를 계산하여 적용합니다.", 4000);
-            }
-
-            console.log('통계 업데이트 완료');
-
-        } catch (error) {
-            console.error("통계 로드 실패 상세:", error);
-            console.error("에러 코드:", error.code);
-            console.error("에러 메시지:", error.message);
-            console.error("에러 상세:", error.details);
-            
-            // 기본값 설정
-            if (elements.totalPages) elements.totalPages.textContent = '0';
-            if (elements.todayExp) elements.todayExp.textContent = '0';
-            if (elements.currentStreak) elements.currentStreak.textContent = '0';
-
-            // 설정이 완료되지 않은 경우에만 오류 표시하지 않음
-            if (error.code === 'functions/not-found') {
-                console.log('getUserStatistics 함수를 찾을 수 없음');
-                utils.showError("통계 기능이 아직 배포되지 않았습니다.");
-            } else if (error.code === 'functions/unauthenticated') {
-                console.log('인증 오류');
-                utils.showError("Notion 연동을 다시 확인해주세요.");
-            } else {
-                console.log('기타 오류');
-                utils.showError(`통계 정보를 불러올 수 없습니다: ${error.message}`);
-            }
+    // 통계 업데이트
+    updateStatistics: (totalExp, pageCount) => {
+        if (elements.totalPages) {
+            elements.totalPages.textContent = pageCount || 0;
+        }
+        
+        // 오늘의 EXP (간단한 예시 - 실제로는 더 복잡한 로직이 필요)
+        if (elements.todayExp) {
+            // 전체 경험치의 10%를 오늘 EXP로 임시 계산 (실제 구현시 날짜 기반 계산 필요)
+            const estimatedTodayExp = Math.floor(totalExp * 0.1);
+            elements.todayExp.textContent = estimatedTodayExp;
+        }
+        
+        // 연속일 (간단한 예시)
+        if (elements.currentStreak) {
+            // 경험치 기반 연속일 추정 (실제 구현시 날짜 기반 계산 필요)
+            const estimatedStreak = Math.floor(totalExp / 50);
+            elements.currentStreak.textContent = Math.min(estimatedStreak, 30); // 최대 30일
         }
     }
 };
@@ -797,9 +673,6 @@ const experience_functions = {
                 });
             });
             
-            // 통계도 다시 로드
-            await statistics_functions.loadStatistics(user);
-            
             if (showAlert) {
                 utils.showSuccess("설정이 저장되었습니다! 이제 Notion에서 데이터베이스를 수정하면 자동으로 경험치가 업데이트됩니다.");
                 // 설정 완료 후 사이드바 닫기
@@ -835,8 +708,10 @@ const tamagotchi_functions = {
         const stateDocRef = doc(db, "users", user.uid, "tamagotchi", "state");
         tamagotchiStateUnsubscribe = onSnapshot(stateDocRef, (docSnap) => {
             const totalExp = docSnap.exists() ? docSnap.data().totalExp || 0 : 0;
+            const pageCount = docSnap.exists() ? docSnap.data().pageCount || 0 : 0;
             
             tamagotchi_functions.updateVisuals(totalExp);
+            ui_functions.updateStatistics(totalExp, pageCount);
         }, (error) => {
             console.error("다마고치 상태 감지 오류:", error);
         });
@@ -964,4 +839,3 @@ const app_functions = {
 
 // 앱 시작
 app_functions.initialize();
-
