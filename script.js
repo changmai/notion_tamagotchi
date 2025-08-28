@@ -568,13 +568,34 @@ const ui_functions = {
 };
 
 // 통계 관련 함수들 (새로 추가)
+// 통계 관련 함수들 (디버깅 강화 버전)
 const statistics_functions = {
     loadStatistics: async (user) => {
         if (!user) return;
 
+        console.log('통계 로드 시작:', user.uid);
+
         try {
+            // 먼저 설정이 완료되었는지 확인
+            const settingsDocRef = doc(db, "users", user.uid, "settings", "config");
+            const settingsSnap = await getDoc(settingsDocRef);
+            
+            if (!settingsSnap.exists()) {
+                console.log('설정이 완료되지 않음, 기본값 설정');
+                // 기본값 설정
+                if (elements.totalPages) elements.totalPages.textContent = '0';
+                if (elements.todayExp) elements.todayExp.textContent = '0';
+                if (elements.currentStreak) elements.currentStreak.textContent = '0';
+                return;
+            }
+
+            console.log('설정 확인 완료, getUserStatistics 호출');
+
             const getUserStatistics = httpsCallable(functions, 'getUserStatistics');
             const result = await getUserStatistics();
+            
+            console.log('통계 API 응답:', result.data);
+            
             const stats = result.data;
 
             // 총 페이지 (완료카운팅 또는 완료된 작업 수)
@@ -597,8 +618,13 @@ const statistics_functions = {
                 utils.showSuccess("완료카운팅 속성이 없으므로, 완료된 페이지의 수를 계산하여 적용합니다.", 4000);
             }
 
+            console.log('통계 업데이트 완료');
+
         } catch (error) {
-            console.error("통계 로드 실패:", error);
+            console.error("통계 로드 실패 상세:", error);
+            console.error("에러 코드:", error.code);
+            console.error("에러 메시지:", error.message);
+            console.error("에러 상세:", error.details);
             
             // 기본값 설정
             if (elements.totalPages) elements.totalPages.textContent = '0';
@@ -606,8 +632,15 @@ const statistics_functions = {
             if (elements.currentStreak) elements.currentStreak.textContent = '0';
 
             // 설정이 완료되지 않은 경우에만 오류 표시하지 않음
-            if (error.code !== 'functions/not-found') {
-                utils.showError("통계 정보를 불러올 수 없습니다.");
+            if (error.code === 'functions/not-found') {
+                console.log('getUserStatistics 함수를 찾을 수 없음');
+                utils.showError("통계 기능이 아직 배포되지 않았습니다.");
+            } else if (error.code === 'functions/unauthenticated') {
+                console.log('인증 오류');
+                utils.showError("Notion 연동을 다시 확인해주세요.");
+            } else {
+                console.log('기타 오류');
+                utils.showError(`통계 정보를 불러올 수 없습니다: ${error.message}`);
             }
         }
     }
@@ -931,3 +964,4 @@ const app_functions = {
 
 // 앱 시작
 app_functions.initialize();
+
