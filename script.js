@@ -84,8 +84,6 @@ const elements = {
     
     // 통계 및 버튼 요소들
     totalPages: document.getElementById('totalPages'),
-    todayExp: document.getElementById('todayExp'),
-    currentStreak: document.getElementById('currentStreak'),
     refreshButton: document.getElementById('refreshButton'),
     shareButton: document.getElementById('shareButton')
 };
@@ -473,51 +471,61 @@ const ui_functions = {
         }
     },
 
-    // 공유 버튼 기능
+    // =================================================================
+    // ▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼ 이 부분이 수정되었습니다 ▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼
+    // =================================================================
+    // 공유 버튼 기능 (개선된 버전)
     shareApp: async () => {
         const user = auth.currentUser;
         if (!user) return;
 
+        const shareButton = elements.shareButton;
+        const originalContent = shareButton.innerHTML;
+        
         const shareData = {
             title: 'Notion 다마고치',
             text: 'Notion으로 다마고치를 키우며 생산성을 높여보세요!',
             url: window.location.href
         };
 
+        // 로딩 상태 UI로 변경
+        shareButton.disabled = true;
+        shareButton.innerHTML = `
+            <svg class="animate-spin w-4 h-4 mx-auto mb-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                 <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"/>
+            </svg>
+            ${navigator.share ? '공유...' : '복사 중...'}
+        `;
+
         try {
             if (navigator.share) {
+                // 모바일: Web Share API 사용
                 await navigator.share(shareData);
             } else {
-                // Web Share API를 지원하지 않는 경우 URL 복사
+                // PC: 클립보드에 복사
                 await navigator.clipboard.writeText(shareData.url);
                 utils.showSuccess("링크가 클립보드에 복사되었습니다!");
             }
         } catch (error) {
+            // 사용자가 공유를 취소한 경우는 오류로 처리하지 않음
             if (error.name !== 'AbortError') {
-                console.error('공유 실패:', error);
-                utils.showError("공유에 실패했습니다.");
+                console.error('공유 또는 복사 실패:', error);
+                utils.showError("작업에 실패했습니다.");
             }
+        } finally {
+            // 버튼을 원래 상태로 복원
+            shareButton.disabled = false;
+            shareButton.innerHTML = originalContent;
         }
     },
+    // =================================================================
+    // ▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲ 이 부분이 수정되었습니다 ▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲
+    // =================================================================
 
     // 통계 업데이트
     updateStatistics: (totalExp, pageCount) => {
         if (elements.totalPages) {
             elements.totalPages.textContent = pageCount || 0;
-        }
-        
-        // 오늘의 EXP (간단한 예시 - 실제로는 더 복잡한 로직이 필요)
-        if (elements.todayExp) {
-            // 전체 경험치의 10%를 오늘 EXP로 임시 계산 (실제 구현시 날짜 기반 계산 필요)
-            const estimatedTodayExp = Math.floor(totalExp * 0.1);
-            elements.todayExp.textContent = estimatedTodayExp;
-        }
-        
-        // 연속일 (간단한 예시)
-        if (elements.currentStreak) {
-            // 경험치 기반 연속일 추정 (실제 구현시 날짜 기반 계산 필요)
-            const estimatedStreak = Math.floor(totalExp / 50);
-            elements.currentStreak.textContent = Math.min(estimatedStreak, 30); // 최대 30일
         }
     }
 };
