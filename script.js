@@ -46,7 +46,7 @@ const provider = new GoogleAuthProvider();
 const db = getFirestore(app);
 const functions = getFunctions(app, "asia-northeast3");
 
-// HTML 요소 참조 (기존 + 햄버거 메뉴)
+// HTML 요소 참조 (기존 + 햄버거 메뉴 + 새로운 버튼들)
 const elements = {
     // 기존 요소들
     welcomeMessage: document.getElementById('welcomeMessage'),
@@ -80,7 +80,14 @@ const elements = {
     userDisplayName: document.getElementById('userDisplayName'),
     userInitial: document.getElementById('userInitial'),
     logoutButton: document.getElementById('logoutButton'),
-    settingsContainer: document.getElementById('settingsContainer')
+    settingsContainer: document.getElementById('settingsContainer'),
+    
+    // 통계 및 버튼 요소들
+    totalPages: document.getElementById('totalPages'),
+    todayExp: document.getElementById('todayExp'),
+    currentStreak: document.getElementById('currentStreak'),
+    refreshButton: document.getElementById('refreshButton'),
+    shareButton: document.getElementById('shareButton')
 };
 
 // 전역 상태
@@ -353,6 +360,14 @@ const ui_functions = {
             if (elements.copyLinkButton) {
                 elements.copyLinkButton.onclick = ui_functions.copyEmbedLink;
             }
+            
+            // 새로 추가된 버튼들
+            if (elements.refreshButton) {
+                elements.refreshButton.onclick = ui_functions.refreshData;
+            }
+            if (elements.shareButton) {
+                elements.shareButton.onclick = ui_functions.shareApp;
+            }
 
             // 다마고치 상태 실시간 감지
             tamagotchi_functions.listenToState(user);
@@ -415,6 +430,95 @@ const ui_functions = {
                 elements.copyStatus.className = "text-xs text-red-600 mt-1 h-4";
             }
         });
+    },
+
+    // 새로고침 버튼 기능
+    refreshData: async () => {
+        const user = auth.currentUser;
+        if (!user) return;
+
+        const originalText = elements.refreshButton.textContent;
+        elements.refreshButton.innerHTML = `
+            <svg class="animate-spin w-4 h-4 mx-auto mb-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"/>
+            </svg>
+            새로고침
+        `;
+        elements.refreshButton.disabled = true;
+
+        try {
+            // 경험치 강제 재계산
+            const settingsDocRef = doc(db, "users", user.uid, "settings", "config");
+            const settingsSnap = await getDoc(settingsDocRef);
+            
+            if (settingsSnap.exists()) {
+                const { selectedDbId, propertyName } = settingsSnap.data();
+                
+                const initializeExperience = httpsCallable(functions, 'initializeExperience');
+                await initializeExperience({ 
+                    databaseId: selectedDbId, 
+                    propertyName: propertyName 
+                });
+                
+                utils.showSuccess("데이터가 새로고침되었습니다!");
+            } else {
+                utils.showError("설정을 먼저 완료해주세요.");
+            }
+        } catch (error) {
+            console.error("새로고침 실패:", error);
+            utils.showError("새로고침 중 오류가 발생했습니다.");
+        } finally {
+            elements.refreshButton.textContent = originalText;
+            elements.refreshButton.disabled = false;
+        }
+    },
+
+    // 공유 버튼 기능
+    shareApp: async () => {
+        const user = auth.currentUser;
+        if (!user) return;
+
+        const shareData = {
+            title: 'Notion 다마고치',
+            text: 'Notion으로 다마고치를 키우며 생산성을 높여보세요!',
+            url: window.location.href
+        };
+
+        try {
+            if (navigator.share) {
+                await navigator.share(shareData);
+            } else {
+                // Web Share API를 지원하지 않는 경우 URL 복사
+                await navigator.clipboard.writeText(shareData.url);
+                utils.showSuccess("링크가 클립보드에 복사되었습니다!");
+            }
+        } catch (error) {
+            if (error.name !== 'AbortError') {
+                console.error('공유 실패:', error);
+                utils.showError("공유에 실패했습니다.");
+            }
+        }
+    },
+
+    // 통계 업데이트
+    updateStatistics: (totalExp, pageCount) => {
+        if (elements.totalPages) {
+            elements.totalPages.textContent = pageCount || 0;
+        }
+        
+        // 오늘의 EXP (간단한 예시 - 실제로는 더 복잡한 로직이 필요)
+        if (elements.todayExp) {
+            // 전체 경험치의 10%를 오늘 EXP로 임시 계산 (실제 구현시 날짜 기반 계산 필요)
+            const estimatedTodayExp = Math.floor(totalExp * 0.1);
+            elements.todayExp.textContent = estimatedTodayExp;
+        }
+        
+        // 연속일 (간단한 예시)
+        if (elements.currentStreak) {
+            // 경험치 기반 연속일 추정 (실제 구현시 날짜 기반 계산 필요)
+            const estimatedStreak = Math.floor(totalExp / 50);
+            elements.currentStreak.textContent = Math.min(estimatedStreak, 30); // 최대 30일
+        }
     }
 };
 
@@ -604,7 +708,10 @@ const tamagotchi_functions = {
         const stateDocRef = doc(db, "users", user.uid, "tamagotchi", "state");
         tamagotchiStateUnsubscribe = onSnapshot(stateDocRef, (docSnap) => {
             const totalExp = docSnap.exists() ? docSnap.data().totalExp || 0 : 0;
+            const pageCount = docSnap.exists() ? docSnap.data().pageCount || 0 : 0;
+            
             tamagotchi_functions.updateVisuals(totalExp);
+            ui_functions.updateStatistics(totalExp, pageCount);
         }, (error) => {
             console.error("다마고치 상태 감지 오류:", error);
         });
