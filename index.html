@@ -11,7 +11,7 @@
     <meta property="og:description" content="Notion으로 다마고치를 키우며 생산성을 높이세요!">
     <meta property="og:type" content="website">
     
-    <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>🥚</text></svg>">
+    <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>🥚</text></svg>">
     
     <script src="https://cdn.tailwindcss.com"></script>
     <script>
@@ -61,7 +61,6 @@
             border-radius: 20px;
             position: relative;
             overflow: hidden;
-            transition: background 1s ease;
         }
         
         .tamagotchi-container::before {
@@ -74,28 +73,6 @@
             background: linear-gradient(45deg, transparent 30%, rgba(255,255,255,0.1) 50%, transparent 70%);
             animation: shimmer 3s infinite;
         }
-
-        /* --- ✨ 10가지 환생 테마 ✨ --- */
-        /* 환생 1회: Forest Green */
-        .tamagotchi-container.reincarnation-theme-1 { background: linear-gradient(135deg, #22c55e 0%, #15803d 100%); }
-        /* 환생 2회: Fiery Orange */
-        .tamagotchi-container.reincarnation-theme-2 { background: linear-gradient(135deg, #f97316 0%, #c2410c 100%); }
-        /* 환생 3회: Mystic Fuchsia */
-        .tamagotchi-container.reincarnation-theme-3 { background: linear-gradient(135deg, #d946ef 0%, #a21caf 100%); }
-        /* 환생 4회: Oceanic Blue */
-        .tamagotchi-container.reincarnation-theme-4 { background: linear-gradient(135deg, #38bdf8 0%, #0369a1 100%); }
-        /* 환생 5회: Crimson Red */
-        .tamagotchi-container.reincarnation-theme-5 { background: linear-gradient(135deg, #f43f5e 0%, #b91c1c 100%); }
-        /* 환생 6회: Golden Yellow */
-        .tamagotchi-container.reincarnation-theme-6 { background: linear-gradient(135deg, #facc15 0%, #b45309 100%); }
-        /* 환생 7회: Celestial Teal */
-        .tamagotchi-container.reincarnation-theme-7 { background: linear-gradient(135deg, #2dd4bf 0%, #0f766e 100%); }
-        /* 환생 8회: Starlight Indigo */
-        .tamagotchi-container.reincarnation-theme-8 { background: linear-gradient(135deg, #818cf8 0%, #4338ca 100%); }
-        /* 환생 9회: Lunar Gray */
-        .tamagotchi-container.reincarnation-theme-9 { background: linear-gradient(135deg, #9ca3af 0%, #4b5563 100%); }
-        /* 환생 10회: Prismatic Legend */
-        .tamagotchi-container.reincarnation-theme-10 { background: linear-gradient(135deg, #f43f5e 0%, #eab308 33%, #22c55e 66%, #3b82f6 100%); }
         
         @keyframes shimmer {
             0% { transform: translateX(-100%) translateY(-100%) rotate(45deg); }
@@ -161,6 +138,7 @@
             transform: translateX(0);
         }
         
+        /* 스크롤바 스타일링 */
         .custom-scrollbar::-webkit-scrollbar {
             width: 4px;
         }
@@ -277,7 +255,7 @@
                 <p class="text-xs text-gray-500 text-center">
                     Made with ❤️ for productivity
                     <br>
-                    <span class="text-xs text-gray-400">v2.2.0</span>
+                    <span class="text-xs text-gray-400">v2.1.0</span>
                 </p>
             </div>
         </div>
@@ -313,7 +291,7 @@
                 <p class="text-gray-500 text-sm">Notion에서 작업하면 성장해요!</p>
             </div>
             
-            <div id="tamagotchiContainer" class="tamagotchi-container p-8 mb-6 min-h-[280px] flex flex-col items-center justify-center relative">
+            <div class="tamagotchi-container p-8 mb-6 min-h-[280px] flex flex-col items-center justify-center relative">
                 <div class="relative">
                     <img id="tamagotchiImage" 
                          src="https://placehold.co/150x150/E2E8F0/A0AEC0?text=💤" 
@@ -326,9 +304,8 @@
                 </div>
                 
                 <div class="mt-6 text-center">
-                    <p id="tamagotchiLevel" class="text-2xl font-bold text-white drop-shadow-lg mb-2 flex items-center justify-center gap-x-2">
-                        <span id="reincarnationDisplay" class="hidden text-yellow-300 text-xl" title="환생 횟수"></span>
-                        <span id="levelText">Level 1: 알</span>
+                    <p id="tamagotchiLevel" class="text-2xl font-bold text-white drop-shadow-lg mb-2">
+                        Level 1: 알
                     </p>
                     <p class="text-sm text-white/80">
                         열심히 작업해서 키워주세요!
@@ -347,8 +324,8 @@
                 
                 <div class="w-full bg-gray-200 rounded-full h-4 overflow-hidden mb-3">
                     <div id="expBar" 
-                         class="bg-gradient-to-r from-blue-500 to-purple-500 h-full rounded-full transition-all duration-1000 ease-out exp-bar-glow" 
-                         style="width: 0%">
+                        class="bg-gradient-to-r from-blue-500 to-purple-500 h-full rounded-full transition-all duration-1000 ease-out exp-bar-glow" 
+                        style="width: 0%">
                     </div>
                 </div>
                 
@@ -358,6 +335,7 @@
                 </div>
             </div>
 
+            <!-- 새로 추가할 건강 상태 표시 영역 -->
             <div class="mt-4 bg-white/60 rounded-xl p-4 border border-white/40">
                 <div class="flex items-center justify-between mb-2">
                     <div class="flex items-center">
@@ -402,7 +380,6 @@
                 
                 <p id="copyStatus" class="text-xs mt-2 h-3"></p>
             </div>
-            
             <div class="mt-6 flex space-x-3">
                 <button id="refreshButton" class="flex-1 bg-white/60 hover:bg-white/80 border border-white/40 rounded-xl p-3 transition text-sm font-medium text-gray-700">
                     <svg class="w-4 h-4 mx-auto mb-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
