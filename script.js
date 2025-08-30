@@ -742,7 +742,7 @@ const tamagotchi_functions = {
 
     getHealthInfo: (healthStatus, lastUpdated) => {
         let daysSince = 0;
-        let daysSinceText = "방금 전";
+        let daysSinceText = "설정 후 업데이트 필요";
         
         if (lastUpdated) {
             const now = new Date();
