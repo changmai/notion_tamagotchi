@@ -803,60 +803,96 @@ const tamagotchi_functions = {
     },
 
     updateVisuals: (exp) => {
-        const { level, levelName, maxExp, color } = tamagotchi_functions.getDetailsByExp(exp);
+        // getDetailsByExp 함수가 객체를 반환하므로, 구조 분해 할당으로 받습니다.
+        const { level, levelName, maxExp, color, reincarnationCount, currentLevelExp } = tamagotchi_functions.getDetailsByExp(exp);
         
         if (elements.tamagotchiImage) {
             const imageUrl = `https://asia-northeast3-notion-tamagotchi.cloudfunctions.net/serveTamagotchiImage?uid=${auth.currentUser?.uid}&t=${Date.now()}`;
             elements.tamagotchiImage.src = imageUrl;
-            elements.tamagotchiImage.style.backgroundColor = color;
+            // 경험치 바와 색상을 동기화
+            elements.tamagotchiImage.style.borderColor = color; 
         }
         
         if (elements.tamagotchiLevel) {
+            // 아직 환생 횟수는 UI에 표시하지 않습니다. (3단계에서 진행)
             elements.tamagotchiLevel.textContent = `Level ${level}: ${levelName}`;
         }
         
         if (elements.expDisplay) {
-            elements.expDisplay.textContent = exp;
+            elements.expDisplay.textContent = exp; // 총 경험치를 표시
         }
         
         if (elements.expBar) {
-            const progressPercentage = Math.min((exp / maxExp) * 100, 100);
+            // --- ✨ 중요: 경험치 바 계산 로직 수정 ---
+            const prevLevelThreshold = tamagotchi_functions.getDetailsByExp(exp).threshold || 0;
+            const nextLevelThreshold = maxExp;
+            const expInCurrentLevel = currentLevelExp - prevLevelThreshold;
+            const expForNextLevel = nextLevelThreshold - prevLevelThreshold;
+            
+            let progressPercentage = 0;
+            if (expForNextLevel > 0) {
+                progressPercentage = Math.min((expInCurrentLevel / expForNextLevel) * 100, 100);
+            }
+            
             elements.expBar.style.width = `${progressPercentage}%`;
             elements.expBar.style.backgroundColor = color;
         }
         
-        if (exp > 0 && exp % 100 === 0) {
+        // 레벨업 이펙트는 일단 그대로 둡니다.
+        if (exp > 0 && exp % 100 === 0) { 
             tamagotchi_functions.showLevelUpEffect();
         }
     },
 
     getDetailsByExp: (exp) => {
+                // --- ✨ 수정된 부분 시작 ---
+
+        // 1단계 백엔드와 동일한 환생 기준 EXP 설정
+        const REINCARNATION_EXP = 5000;
+
+        // 환생 횟수와 현재 레벨 경험치 계산
+        const reincarnationCount = Math.floor(exp / REINCARNATION_EXP);
+        const currentLevelExp = exp % REINCARNATION_EXP;
+
+        // --- ✨ 수정된 부분 끝 ---
+        
         const levels = [
-            { threshold: 0, level: 1, name: "알", maxExp: 100, color: "#A0AEC0" },
-            { threshold: 1, level: 2, name: "새싹", maxExp: 100, color: "#84CC16" },
-            { threshold: 100, level: 3, name: "유아기", maxExp: 400, color: "#14B8A6" },
-            { threshold: 400, level: 4, name: "유년기1", maxExp: 900, color: "#F97316" },
-            { threshold: 900, level: 5, name: "유년기2", maxExp: 1500, color: "#EC4899" },
+            { threshold: 0,    level: 1, name: "알",     maxExp: 100,  color: "#A0AEC0" },
+            { threshold: 1,    level: 2, name: "새싹",   maxExp: 100,  color: "#84CC16" },
+            { threshold: 100,  level: 3, name: "유아기", maxExp: 400,  color: "#14B8A6" },
+            { threshold: 400,  level: 4, name: "유년기1", maxExp: 900,  color: "#F97316" },
+            { threshold: 900,  level: 5, name: "유년기2", maxExp: 1500, color: "#EC4899" },
             { threshold: 1500, level: 6, name: "성장기", maxExp: 2200, color: "#10B981" },
             { threshold: 2200, level: 7, name: "성숙기", maxExp: 3000, color: "#3B82F6" },
             { threshold: 3000, level: 8, name: "완전체", maxExp: 4000, color: "#8B5CF6" },
             { threshold: 4000, level: 9, name: "궁극체", maxExp: 5000, color: "#EF4444" },
-            { threshold: 5000, level: 10, name: "전설", maxExp: 10000, color: "#F59E0B" }
+            // 마지막 레벨 임계값도 상수로 변경
+            { threshold: REINCARNATION_EXP, level: 10, name: "전설", maxExp: 10000, color: "#F59E0B" }
         ];
         
         let currentLevel = levels[0];
+        // 기존 exp 대신 currentLevelExp를 사용하여 현재 레벨을 찾음
         for (let i = levels.length - 1; i >= 0; i--) {
-            if (exp >= levels[i].threshold) {
+            // 예외 처리: 경험치가 정확히 환생 단위일 때
+            if (currentLevelExp === 0 && exp > 0 && exp % REINCARNATION_EXP === 0) {
+                // "전설" 레벨 정보를 할당하기 위해 마지막에서 두 번째 레벨을 기준으로 설정
+                 currentLevel = levels[levels.length-2];
+                 break;
+            }
+            if (currentLevelExp >= levels[i].threshold) {
                 currentLevel = levels[i];
                 break;
             }
         }
         
+        // 이 함수에서는 환생 횟수도 함께 반환하도록 수정합니다. (3단계에서 사용)
         return {
             level: currentLevel.level,
             levelName: currentLevel.name,
             maxExp: currentLevel.maxExp,
-            color: currentLevel.color
+            color: currentLevel.color,
+            reincarnationCount: reincarnationCount, // 환생 횟수 추가
+            currentLevelExp: currentLevelExp // 현재 레벨 경험치 추가
         };
     },
 
