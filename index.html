@@ -150,6 +150,39 @@
             background: rgba(255, 255, 255, 0.3);
             border-radius: 2px;
         }
+
+/* 기본 배경 스타일 */
+    body {
+        background: linear-gradient(135deg, #1f2937 0%, #0a0e14 100%); /* 기본 다크 그레이 */
+        transition: background-color 1s ease, background-image 1s ease; /* 부드러운 전환 효과 */
+    }
+
+    /* 환생 1회차 배경 */
+    body.reincarnation-1 {
+        background: linear-gradient(135deg, #60A5FA 0%, #3B82F6 100%); /* 파스텔 블루 */
+    }
+
+    /* 환생 2회차 배경 */
+    body.reincarnation-2 {
+        background: linear-gradient(135deg, #FDBA74 0%, #F59E0B 100%); /* 따뜻한 오렌지 */
+    }
+
+    /* 환생 3회차 배경 */
+    body.reincarnation-3 {
+        background: linear-gradient(135deg, #A78BFA 0%, #8B5CF6 100%); /* 신비로운 퍼플 */
+    }
+
+    /* 환생 4회차 배경 */
+    body.reincarnation-4 {
+        background: linear-gradient(135deg, #34D399 0%, #10B981 100%); /* 상쾌한 그린 */
+    }
+
+    /* 환생 5회차 배경 (더욱 특별하게) */
+    body.reincarnation-5 {
+        background: linear-gradient(135deg, #FCA5A5 0%, #EF4444 100%); /* 열정적인 레드 */
+    }
+    /* 더 많은 환생 테마는 여기에 추가 */
+
     </style>
 </head>
 <body class="bg-gradient-to-br from-tamagotchi-bg to-blue-50 min-h-screen font-sans overflow-x-hidden">
