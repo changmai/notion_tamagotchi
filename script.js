@@ -62,8 +62,8 @@ const elements = {
     gameSection: document.getElementById('gameSection'),
     tamagotchiImage: document.getElementById('tamagotchiImage'),
     tamagotchiLevel: document.getElementById('tamagotchiLevel'),
-    levelText: document.getElementById('levelText'), // 3단계 추가
-    reincarnationDisplay: document.getElementById('reincarnationDisplay'), // 3단계 추가
+    levelText: document.getElementById('levelText'), 
+    reincarnationDisplay: document.getElementById('reincarnationDisplay'), 
     expDisplay: document.getElementById('expDisplay'),
     expBar: document.getElementById('expBar'),
     embedSection: document.getElementById('embedSection'),
@@ -850,6 +850,17 @@ const tamagotchi_functions = {
             elements.expBar.style.backgroundColor = color;
         }
         
+        // 배경화면 변경 로직
+        const body = document.body;
+        // 기존 환생 테마 클래스 모두 제거
+        body.className = body.className.split(' ').filter(c => !c.startsWith('reincarnation-')).join(' ');
+
+        if (reincarnationCount > 0) {
+            // 환생 횟수에 맞는 새로운 클래스 추가
+            const themeClass = `reincarnation-${reincarnationCount}`;
+            body.classList.add(themeClass);
+        }
+
         if (exp > 0 && exp % 100 === 0) {
             tamagotchi_functions.showLevelUpEffect();
         }
