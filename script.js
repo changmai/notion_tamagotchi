@@ -1,4 +1,4 @@
-// 환생 기능이 추가된 script.js
+// 기존 script.js를 기반으로 건강 상태 기능 추가
 import { initializeApp } from "https://www.gstatic.com/firebasejs/9.22.2/firebase-app.js";
 import { 
     getAuth, 
@@ -46,7 +46,7 @@ const provider = new GoogleAuthProvider();
 const db = getFirestore(app);
 const functions = getFunctions(app, "asia-northeast3");
 
-// HTML 요소 참조 (환생 관련 요소 추가)
+// HTML 요소 참조 (건강 상태 요소들 추가)
 const elements = {
     // 기존 요소들
     welcomeMessage: document.getElementById('welcomeMessage'),
@@ -87,16 +87,11 @@ const elements = {
     refreshButton: document.getElementById('refreshButton'),
     shareButton: document.getElementById('shareButton'),
     
-    // 건강 상태 요소들
+    // 새로 추가된 건강 상태 요소들
     healthIcon: document.getElementById('healthIcon'),
     healthStatus: document.getElementById('healthStatus'),
     healthMessage: document.getElementById('healthMessage'),
-    lastUpdateDays: document.getElementById('lastUpdateDays'),
-
-    // 환생 관련 요소들
-    reincarnationDisplay: document.getElementById('reincarnationDisplay'),
-    expBonusDisplay: document.getElementById('expBonusDisplay'),
-    rawExpDisplay: document.getElementById('rawExpDisplay'),
+    lastUpdateDays: document.getElementById('lastUpdateDays')
 };
 
 // 전역 상태
@@ -350,11 +345,13 @@ const ui_functions = {
                 }
             }
             
+            // 공통 처리
             if (elements.gameSection) elements.gameSection.classList.remove('hidden');
             if (elements.embedSection) elements.embedSection.classList.remove('hidden');
             if (elements.notionSection) elements.notionSection.classList.remove('hidden');
             if (elements.authStatus) elements.authStatus.classList.add('hidden');
             
+            // 이벤트 리스너 설정
             if (elements.notionConnectButton) {
                 elements.notionConnectButton.onclick = notion_functions.connect;
             }
@@ -374,16 +371,23 @@ const ui_functions = {
                 elements.shareButton.onclick = ui_functions.shareApp;
             }
 
+            // 다마고치 상태 실시간 감지
             tamagotchi_functions.listenToState(user);
+            
+            // Notion 콜백 처리
             notion_functions.handleCallback(user);
+            
+            // 사용자 데이터 로드
             user_functions.loadData(user);
             
+            // 임베딩 링크 설정
             if (elements.embedLinkInput) {
                 const imageUrl = `https://asia-northeast3-notion-tamagotchi.cloudfunctions.net/serveTamagotchiImage?uid=${user.uid}`;
                 elements.embedLinkInput.value = imageUrl;
             }
 
         } else {
+            // 로그아웃 상태
             if (elements.initialScreen && elements.loginSection && elements.userInfo) {
                 elements.initialScreen.classList.remove('hidden');
                 elements.loginSection.classList.remove('hidden');
@@ -403,6 +407,7 @@ const ui_functions = {
                 }
             }
             
+            // 공통 처리
             if (elements.gameSection) elements.gameSection.classList.add('hidden');
             if (elements.embedSection) elements.embedSection.classList.add('hidden');
             if (elements.notionSection) elements.notionSection.classList.add('hidden');
@@ -511,16 +516,9 @@ const ui_functions = {
         }
     },
 
-    updateStatistics: (pageCount, rawExp, reincarnationCount) => {
+    updateStatistics: (totalExp, pageCount) => {
         if (elements.totalPages) {
             elements.totalPages.textContent = pageCount || 0;
-        }
-        if (elements.rawExpDisplay) {
-            elements.rawExpDisplay.textContent = rawExp || 0;
-        }
-        if (elements.expBonusDisplay) {
-            const bonus = reincarnationCount * 5;
-            elements.expBonusDisplay.textContent = `+${bonus}%`;
         }
     }
 };
@@ -662,7 +660,7 @@ const experience_functions = {
         }
 
         const settingsDocRef = doc(db, "users", user.uid, "settings", "config");
-        await setDoc(settingsDocRef, { selectedDbId, propertyName }, { merge: true });
+        await setDoc(settingsDocRef, { selectedDbId, propertyName });
 
         const originalText = elements.startButton.textContent;
         utils.showLoading(elements.startButton, originalText);
@@ -701,7 +699,7 @@ const experience_functions = {
     }
 };
 
-// 다마고치 함수들 (환생 기능 추가)
+// 다마고치 함수들 (건강 상태 기능 추가)
 const tamagotchi_functions = {
     listenToState: (user) => {
         if (tamagotchiStateUnsubscribe) {
@@ -714,18 +712,14 @@ const tamagotchi_functions = {
                 const data = docSnap.data();
                 const totalExp = data.totalExp || 0;
                 const pageCount = data.pageCount || 0;
-                const rawTotalExp = data.rawTotalExp || 0;
-                const reincarnationCount = data.reincarnationCount || 0;
                 const healthStatus = data.healthStatus || 'active';
                 const lastUpdated = data.lastUpdated;
                 
-                tamagotchi_functions.updateVisuals(totalExp, reincarnationCount);
+                tamagotchi_functions.updateVisuals(totalExp);
                 tamagotchi_functions.updateHealthDisplay(healthStatus, lastUpdated);
-                ui_functions.updateStatistics(pageCount, rawTotalExp, reincarnationCount);
-                tamagotchi_functions.updateBackground(reincarnationCount);
+                ui_functions.updateStatistics(totalExp, pageCount);
             } else {
                 tamagotchi_functions.updateHealthDisplay('active', null);
-                tamagotchi_functions.updateBackground(0);
             }
         }, (error) => {
             console.error("다마고치 상태 감지 오류:", error);
@@ -765,52 +759,60 @@ const tamagotchi_functions = {
         }
 
         switch (healthStatus) {
-            case 'active': return { icon: '💚', statusText: '활발함', statusColor: 'text-green-600', message: '다마고치가 건강하고 활발해요!', daysSinceUpdate: daysSinceText };
-            case 'sad': return { icon: '😔', statusText: '우울함', statusColor: 'text-yellow-600', message: `${daysSince}일째 업데이트가 없어서 우울해해요...`, daysSinceUpdate: daysSinceText };
-            case 'sleepy': return { icon: '😴', statusText: '잠듦', statusColor: 'text-gray-600', message: `${daysSince}일째 방치되어서 잠들어버렸어요...`, daysSinceUpdate: daysSinceText };
-            case 'critical': return { icon: '💔', statusText: '위험상태', statusColor: 'text-red-600', message: `${daysSince}일째 업데이트가 없어서 매우 위험해요!`, daysSinceUpdate: daysSinceText };
-            default: return { icon: '❓', statusText: '알 수 없음', statusColor: 'text-gray-600', message: '상태를 확인할 수 없어요.', daysSinceUpdate: daysSinceText };
+            case 'active':
+                return {
+                    icon: '💚',
+                    statusText: '활발함',
+                    statusColor: 'text-green-600',
+                    message: '다마고치가 건강하고 활발해요!',
+                    daysSinceUpdate: daysSinceText
+                };
+            case 'sad':
+                return {
+                    icon: '😔',
+                    statusText: '우울함',
+                    statusColor: 'text-yellow-600',
+                    message: `${daysSince}일째 업데이트가 없어서 우울해해요...`,
+                    daysSinceUpdate: daysSinceText
+                };
+            case 'sleepy':
+                return {
+                    icon: '😴',
+                    statusText: '잠듦',
+                    statusColor: 'text-gray-600',
+                    message: `${daysSince}일째 방치되어서 잠들어버렸어요...`,
+                    daysSinceUpdate: daysSinceText
+                };
+            case 'critical':
+                return {
+                    icon: '💔',
+                    statusText: '위험상태',
+                    statusColor: 'text-red-600',
+                    message: `${daysSince}일째 업데이트가 없어서 매우 위험해요!`,
+                    daysSinceUpdate: daysSinceText
+                };
+            default:
+                return {
+                    icon: '❓',
+                    statusText: '알 수 없음',
+                    statusColor: 'text-gray-600',
+                    message: '상태를 확인할 수 없어요.',
+                    daysSinceUpdate: daysSinceText
+                };
         }
     },
-    
-    updateBackground: (reincarnationCount) => {
-        const backgrounds = [
-            'from-tamagotchi-bg to-blue-50', // 0회차: 기본
-            'from-gray-800 to-black',        // 1회차: 우주
-            'from-blue-400 to-teal-500',     // 2회차: 바다
-            'from-green-500 to-lime-600',    // 3회차: 숲
-            'from-purple-600 to-indigo-800'  // 4회차: 판타지
-        ];
-        const body = document.body;
-        const currentBg = backgrounds[reincarnationCount % backgrounds.length].split(' ');
-        
-        // 이전 배경 클래스 모두 제거
-        const allBgClasses = backgrounds.flat().join(' ').split(' ');
-        body.classList.remove(...allBgClasses);
-        
-        // 새 배경 클래스 추가
-        body.classList.add(...currentBg);
-    },
 
-    updateVisuals: (exp, reincarnationCount) => {
-        const { level, levelName, maxExpForLevel, color, nextLevelThreshold } = tamagotchi_functions.getDetailsByExp(exp);
+    updateVisuals: (exp) => {
+        const { level, levelName, maxExp, color } = tamagotchi_functions.getDetailsByExp(exp);
         
         if (elements.tamagotchiImage) {
             const imageUrl = `https://asia-northeast3-notion-tamagotchi.cloudfunctions.net/serveTamagotchiImage?uid=${auth.currentUser?.uid}&t=${Date.now()}`;
             elements.tamagotchiImage.src = imageUrl;
+            elements.tamagotchiImage.style.backgroundColor = color;
         }
         
         if (elements.tamagotchiLevel) {
             elements.tamagotchiLevel.textContent = `Level ${level}: ${levelName}`;
-        }
-
-        if (elements.reincarnationDisplay) {
-            if (reincarnationCount > 0) {
-                elements.reincarnationDisplay.textContent = `+${reincarnationCount} 환생 🌟`;
-                elements.reincarnationDisplay.classList.remove('hidden');
-            } else {
-                elements.reincarnationDisplay.classList.add('hidden');
-            }
         }
         
         if (elements.expDisplay) {
@@ -818,44 +820,43 @@ const tamagotchi_functions = {
         }
         
         if (elements.expBar) {
-            const expForNext = nextLevelThreshold - maxExpForLevel;
-            const currentExpInLevel = exp - maxExpForLevel;
-            const progressPercentage = expForNext > 0 ? Math.min((currentExpInLevel / expForNext) * 100, 100) : 100;
+            const progressPercentage = Math.min((exp / maxExp) * 100, 100);
             elements.expBar.style.width = `${progressPercentage}%`;
             elements.expBar.style.backgroundColor = color;
+        }
+        
+        if (exp > 0 && exp % 100 === 0) {
+            tamagotchi_functions.showLevelUpEffect();
         }
     },
 
     getDetailsByExp: (exp) => {
         const levels = [
-            { threshold: 0, level: 1, name: "알", color: "#A0AEC0" },
-            { threshold: 1, level: 2, name: "새싹", color: "#84CC16" },
-            { threshold: 100, level: 3, name: "유아기", color: "#14B8A6" },
-            { threshold: 400, level: 4, name: "유년기1", color: "#F97316" },
-            { threshold: 900, level: 5, name: "유년기2", color: "#EC4899" },
-            { threshold: 1500, level: 6, name: "성장기", color: "#10B981" },
-            { threshold: 2200, level: 7, name: "성숙기", color: "#3B82F6" },
-            { threshold: 3000, level: 8, name: "완전체", color: "#8B5CF6" },
-            { threshold: 4000, level: 9, name: "궁극체", color: "#EF4444" },
-            { threshold: 5000, level: 10, name: "전설", color: "#F59E0B" }
+            { threshold: 0, level: 1, name: "알", maxExp: 100, color: "#A0AEC0" },
+            { threshold: 1, level: 2, name: "새싹", maxExp: 100, color: "#84CC16" },
+            { threshold: 100, level: 3, name: "유아기", maxExp: 400, color: "#14B8A6" },
+            { threshold: 400, level: 4, name: "유년기1", maxExp: 900, color: "#F97316" },
+            { threshold: 900, level: 5, name: "유년기2", maxExp: 1500, color: "#EC4899" },
+            { threshold: 1500, level: 6, name: "성장기", maxExp: 2200, color: "#10B981" },
+            { threshold: 2200, level: 7, name: "성숙기", maxExp: 3000, color: "#3B82F6" },
+            { threshold: 3000, level: 8, name: "완전체", maxExp: 4000, color: "#8B5CF6" },
+            { threshold: 4000, level: 9, name: "궁극체", maxExp: 5000, color: "#EF4444" },
+            { threshold: 5000, level: 10, name: "전설", maxExp: 10000, color: "#F59E0B" }
         ];
         
-        let currentLevelInfo = levels[0];
+        let currentLevel = levels[0];
         for (let i = levels.length - 1; i >= 0; i--) {
             if (exp >= levels[i].threshold) {
-                currentLevelInfo = levels[i];
+                currentLevel = levels[i];
                 break;
             }
         }
-
-        const nextLevelInfo = levels.find(l => l.threshold > currentLevelInfo.threshold) || { threshold: 5000 };
         
         return {
-            level: currentLevelInfo.level,
-            levelName: currentLevelInfo.name,
-            maxExpForLevel: currentLevelInfo.threshold,
-            nextLevelThreshold: nextLevelInfo.threshold,
-            color: currentLevelInfo.color
+            level: currentLevel.level,
+            levelName: currentLevel.name,
+            maxExp: currentLevel.maxExp,
+            color: currentLevel.color
         };
     },
 
