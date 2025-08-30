@@ -1,4 +1,4 @@
-// 기존 script.js를 기반으로 건강 상태 기능 추가
+// 기존 script.js를 기반으로 햄버거 메뉴 기능만 추가
 import { initializeApp } from "https://www.gstatic.com/firebasejs/9.22.2/firebase-app.js";
 import { 
     getAuth, 
@@ -46,7 +46,7 @@ const provider = new GoogleAuthProvider();
 const db = getFirestore(app);
 const functions = getFunctions(app, "asia-northeast3");
 
-// HTML 요소 참조 (건강 상태 및 환생 관련 요소들 추가)
+// HTML 요소 참조 (기존 + 햄버거 메뉴 + 새로운 버튼들)
 const elements = {
     // 기존 요소들
     welcomeMessage: document.getElementById('welcomeMessage'),
@@ -60,11 +60,8 @@ const elements = {
     propertySelect: document.getElementById('propertySelect'),
     startButton: document.getElementById('startButton'),
     gameSection: document.getElementById('gameSection'),
-    tamagotchiContainer: document.getElementById('tamagotchiContainer'),
     tamagotchiImage: document.getElementById('tamagotchiImage'),
     tamagotchiLevel: document.getElementById('tamagotchiLevel'),
-    levelText: document.getElementById('levelText'), 
-    reincarnationDisplay: document.getElementById('reincarnationDisplay'), 
     expDisplay: document.getElementById('expDisplay'),
     expBar: document.getElementById('expBar'),
     embedSection: document.getElementById('embedSection'),
@@ -88,13 +85,7 @@ const elements = {
     // 통계 및 버튼 요소들
     totalPages: document.getElementById('totalPages'),
     refreshButton: document.getElementById('refreshButton'),
-    shareButton: document.getElementById('shareButton'),
-    
-    // 새로 추가된 건강 상태 요소들
-    healthIcon: document.getElementById('healthIcon'),
-    healthStatus: document.getElementById('healthStatus'),
-    healthMessage: document.getElementById('healthMessage'),
-    lastUpdateDays: document.getElementById('lastUpdateDays')
+    shareButton: document.getElementById('shareButton')
 };
 
 // 전역 상태
@@ -102,7 +93,7 @@ let tamagotchiStateUnsubscribe = null;
 let currentRetryCount = 0;
 let sidebarOpen = false;
 
-// 유틸리티 함수들
+// 유틸리티 함수들 (기존 유지)
 const utils = {
     showLoading: (element, originalText) => {
         element.disabled = true;
@@ -160,7 +151,7 @@ const utils = {
     }
 };
 
-// 사이드바 관리
+// 사이드바 관리 (햄버거 메뉴)
 const sidebar = {
     open: () => {
         if (!elements.hamburgerButton || !elements.sidebar) return;
@@ -195,7 +186,7 @@ const sidebar = {
     }
 };
 
-// 인증 함수들
+// 기존 함수들 유지
 const auth_functions = {
     signIn: () => {
         signInWithPopup(auth, provider).catch((error) => {
@@ -245,7 +236,6 @@ function handleAuthError(error) {
     utils.showError(errorMessage);
 }
 
-// Notion 함수들
 const notion_functions = {
     connect: () => {
         const authUrl = `https://api.notion.com/v1/oauth/authorize?client_id=${CONFIG.NOTION_CLIENT_ID}&response_type=code&owner=user&redirect_uri=${encodeURIComponent(CONFIG.NOTION_REDIRECT_URI)}`;
@@ -305,7 +295,6 @@ const notion_functions = {
     }
 };
 
-// UI 함수들
 const ui_functions = {
     updateNotionUI: (isConnected) => {
         if (isConnected && elements.notionConnectButton && elements.notionStatus) {
@@ -323,6 +312,7 @@ const ui_functions = {
 
     updateAuthUI: (user) => {
         if (user) {
+            // 햄버거 메뉴가 있는 경우
             if (elements.initialScreen && elements.loginSection && elements.userInfo) {
                 elements.initialScreen.classList.add('hidden');
                 elements.loginSection.classList.add('hidden');
@@ -339,6 +329,7 @@ const ui_functions = {
                     elements.logoutButton.onclick = auth_functions.logOut;
                 }
             } else {
+                // 기존 방식 (햄버거 메뉴가 없는 경우)
                 if (elements.welcomeMessage) {
                     elements.welcomeMessage.textContent = `${user.displayName}님, 환영합니다!`;
                 }
@@ -367,6 +358,8 @@ const ui_functions = {
             if (elements.copyLinkButton) {
                 elements.copyLinkButton.onclick = ui_functions.copyEmbedLink;
             }
+            
+            // 새로 추가된 버튼들
             if (elements.refreshButton) {
                 elements.refreshButton.onclick = ui_functions.refreshData;
             }
@@ -397,9 +390,12 @@ const ui_functions = {
                 elements.userInfo.classList.add('hidden');
                 elements.settingsContainer?.classList.add('hidden');
                 
+                // ▼▼▼▼▼ 이 부분이 추가되었습니다 ▼▼▼▼▼
                 if (elements.authButton) {
                     elements.authButton.onclick = auth_functions.signIn;
                 }
+                // ▲▲▲▲▲ 이 부분이 추가되었습니다 ▲▲▲▲▲
+
             } else {
                 if (elements.welcomeMessage) {
                     elements.welcomeMessage.textContent = '로그인하여 다마고치를 키워보세요!';
@@ -441,6 +437,7 @@ const ui_functions = {
         });
     },
 
+    // 새로고침 버튼 기능
     refreshData: async () => {
         const user = auth.currentUser;
         if (!user) return;
@@ -455,6 +452,7 @@ const ui_functions = {
         elements.refreshButton.disabled = true;
 
         try {
+            // 경험치 강제 재계산
             const settingsDocRef = doc(db, "users", user.uid, "settings", "config");
             const settingsSnap = await getDoc(settingsDocRef);
             
@@ -480,6 +478,7 @@ const ui_functions = {
         }
     },
 
+    // 공유 버튼 기능 (개선된 버전)
     shareApp: async () => {
         const user = auth.currentUser;
         if (!user) return;
@@ -493,6 +492,7 @@ const ui_functions = {
             url: window.location.href
         };
 
+        // 로딩 상태 UI로 변경
         shareButton.disabled = true;
         shareButton.innerHTML = `
             <svg class="animate-spin w-4 h-4 mx-auto mb-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -503,22 +503,27 @@ const ui_functions = {
 
         try {
             if (navigator.share) {
+                // 모바일: Web Share API 사용
                 await navigator.share(shareData);
             } else {
+                // PC: 클립보드에 복사
                 await navigator.clipboard.writeText(shareData.url);
                 utils.showSuccess("링크가 클립보드에 복사되었습니다!");
             }
         } catch (error) {
+            // 사용자가 공유를 취소한 경우는 오류로 처리하지 않음
             if (error.name !== 'AbortError') {
                 console.error('공유 또는 복사 실패:', error);
                 utils.showError("작업에 실패했습니다. 다시 시도해주세요.");
             }
         } finally {
+            // 버튼을 원래 상태로 복원
             shareButton.disabled = false;
             shareButton.innerHTML = originalContent;
         }
     },
 
+    // 통계 업데이트
     updateStatistics: (totalExp, pageCount) => {
         if (elements.totalPages) {
             elements.totalPages.textContent = pageCount || 0;
@@ -526,7 +531,7 @@ const ui_functions = {
     }
 };
 
-// 사용자 함수들
+// 기존 함수들 유지
 const user_functions = {
     loadData: async (user) => {
         if (!user) return;
@@ -539,6 +544,7 @@ const user_functions = {
                 ui_functions.updateNotionUI(true);
                 await database_functions.loadDatabases();
                 
+                // 기존과 동일한 경로 사용
                 const settingsDocRef = doc(db, "users", user.uid, "settings", "config");
                 const settingsSnap = await getDoc(settingsDocRef);
                 
@@ -556,7 +562,6 @@ const user_functions = {
     }
 };
 
-// 데이터베이스 함수들
 const database_functions = {
     loadDatabases: async () => {
         if (!elements.databaseSelect) return;
@@ -643,7 +648,6 @@ const database_functions = {
     }
 };
 
-// 경험치 함수들
 const experience_functions = {
     initialize: async (showAlert = true) => {
         if (!elements.databaseSelect || !elements.propertySelect || !elements.startButton) return;
@@ -662,6 +666,7 @@ const experience_functions = {
             return;
         }
 
+        // 기존과 동일한 경로 사용
         const settingsDocRef = doc(db, "users", user.uid, "settings", "config");
         await setDoc(settingsDocRef, { selectedDbId, propertyName });
 
@@ -679,6 +684,7 @@ const experience_functions = {
             
             if (showAlert) {
                 utils.showSuccess("설정이 저장되었습니다! 이제 Notion에서 데이터베이스를 수정하면 자동으로 경험치가 업데이트됩니다.");
+                // 설정 완료 후 사이드바 닫기
                 setTimeout(() => {
                     sidebar.close();
                 }, 1000);
@@ -702,7 +708,6 @@ const experience_functions = {
     }
 };
 
-// 다마고치 함수들 (건강 상태 기능 추가)
 const tamagotchi_functions = {
     listenToState: (user) => {
         if (tamagotchiStateUnsubscribe) {
@@ -711,120 +716,27 @@ const tamagotchi_functions = {
         
         const stateDocRef = doc(db, "users", user.uid, "tamagotchi", "state");
         tamagotchiStateUnsubscribe = onSnapshot(stateDocRef, (docSnap) => {
-            if (docSnap.exists()) {
-                const data = docSnap.data();
-                const totalExp = data.totalExp || 0;
-                const pageCount = data.pageCount || 0;
-                const healthStatus = data.healthStatus || 'active';
-                const lastUpdated = data.lastUpdated;
-                
-                tamagotchi_functions.updateVisuals(totalExp);
-                tamagotchi_functions.updateHealthDisplay(healthStatus, lastUpdated);
-                ui_functions.updateStatistics(totalExp, pageCount);
-            } else {
-                tamagotchi_functions.updateHealthDisplay('active', null);
-            }
+            const totalExp = docSnap.exists() ? docSnap.data().totalExp || 0 : 0;
+            const pageCount = docSnap.exists() ? docSnap.data().pageCount || 0 : 0;
+            
+            tamagotchi_functions.updateVisuals(totalExp);
+            ui_functions.updateStatistics(totalExp, pageCount);
         }, (error) => {
             console.error("다마고치 상태 감지 오류:", error);
         });
     },
 
-    updateHealthDisplay: (healthStatus, lastUpdated) => {
-        if (!elements.healthIcon || !elements.healthStatus || !elements.healthMessage || !elements.lastUpdateDays) {
-            return;
-        }
-
-        const healthInfo = tamagotchi_functions.getHealthInfo(healthStatus, lastUpdated);
-        
-        elements.healthIcon.textContent = healthInfo.icon;
-        elements.healthStatus.textContent = healthInfo.statusText;
-        elements.healthStatus.className = `text-sm font-bold ${healthInfo.statusColor}`;
-        elements.healthMessage.textContent = healthInfo.message;
-        elements.lastUpdateDays.textContent = healthInfo.daysSinceUpdate;
-    },
-
-    getHealthInfo: (healthStatus, lastUpdated) => {
-        let daysSince = 0;
-        let daysSinceText = "설정 후 업데이트 필요";
-        
-        if (lastUpdated) {
-            const now = new Date();
-            const lastUpdateDate = lastUpdated.toDate ? lastUpdated.toDate() : new Date(lastUpdated);
-            daysSince = Math.floor((now - lastUpdateDate) / (1000 * 60 * 60 * 24));
-            
-            if (daysSince === 0) {
-                daysSinceText = "오늘";
-            } else if (daysSince === 1) {
-                daysSinceText = "1일 전";
-            } else {
-                daysSinceText = `${daysSince}일 전`;
-            }
-        }
-
-        switch (healthStatus) {
-            case 'active':
-                return {
-                    icon: '💚',
-                    statusText: '활발함',
-                    statusColor: 'text-green-600',
-                    message: '다마고치가 건강하고 활발해요!',
-                    daysSinceUpdate: daysSinceText
-                };
-            case 'sad':
-                return {
-                    icon: '😔',
-                    statusText: '우울함',
-                    statusColor: 'text-yellow-600',
-                    message: `${daysSince}일째 업데이트가 없어서 우울해해요...`,
-                    daysSinceUpdate: daysSinceText
-                };
-            case 'sleepy':
-                return {
-                    icon: '😴',
-                    statusText: '잠듦',
-                    statusColor: 'text-gray-600',
-                    message: `${daysSince}일째 방치되어서 잠들어버렸어요...`,
-                    daysSinceUpdate: daysSinceText
-                };
-            case 'critical':
-                return {
-                    icon: '💔',
-                    statusText: '위험상태',
-                    statusColor: 'text-red-600',
-                    message: `${daysSince}일째 업데이트가 없어서 매우 위험해요!`,
-                    daysSinceUpdate: daysSinceText
-                };
-            default:
-                return {
-                    icon: '❓',
-                    statusText: '알 수 없음',
-                    statusColor: 'text-gray-600',
-                    message: '상태를 확인할 수 없어요.',
-                    daysSinceUpdate: daysSinceText
-                };
-        }
-    },
-
     updateVisuals: (exp) => {
-        const { level, levelName, maxExp, color, reincarnationCount, currentLevelExp } = tamagotchi_functions.getDetailsByExp(exp);
+        const { level, levelName, maxExp, color } = tamagotchi_functions.getDetailsByExp(exp);
         
         if (elements.tamagotchiImage) {
             const imageUrl = `https://asia-northeast3-notion-tamagotchi.cloudfunctions.net/serveTamagotchiImage?uid=${auth.currentUser?.uid}&t=${Date.now()}`;
             elements.tamagotchiImage.src = imageUrl;
-            elements.tamagotchiImage.style.borderColor = color;
+            elements.tamagotchiImage.style.backgroundColor = color;
         }
         
-        if (elements.reincarnationDisplay) {
-            if (reincarnationCount > 0) {
-                elements.reincarnationDisplay.textContent = `💎x${reincarnationCount}`;
-                elements.reincarnationDisplay.classList.remove('hidden');
-            } else {
-                elements.reincarnationDisplay.classList.add('hidden');
-            }
-        }
-
-        if (elements.levelText) {
-            elements.levelText.textContent = `Level ${level}: ${levelName}`;
+        if (elements.tamagotchiLevel) {
+            elements.tamagotchiLevel.textContent = `Level ${level}: ${levelName}`;
         }
         
         if (elements.expDisplay) {
@@ -832,63 +744,34 @@ const tamagotchi_functions = {
         }
         
         if (elements.expBar) {
-            const details = tamagotchi_functions.getDetailsByExp(exp);
-            const prevLevelThreshold = details.threshold || 0;
-            const nextLevelThreshold = details.maxExp;
-            const expInCurrentLevel = currentLevelExp - prevLevelThreshold;
-            const expForNextLevel = nextLevelThreshold - prevLevelThreshold;
-            
-            let progressPercentage = 0;
-            if (expForNextLevel > 0) {
-                progressPercentage = Math.min((expInCurrentLevel / expForNextLevel) * 100, 100);
-            } else if (currentLevelExp >= details.threshold) {
-                progressPercentage = 100;
-            }
-            
+            const progressPercentage = Math.min((exp / maxExp) * 100, 100);
             elements.expBar.style.width = `${progressPercentage}%`;
             elements.expBar.style.backgroundColor = color;
         }
         
-        if (elements.tamagotchiContainer) {
-            const container = elements.tamagotchiContainer;
-            container.className = container.className.split(' ').filter(c => !c.startsWith('reincarnation-theme-')).join(' ');
-
-            if (reincarnationCount > 0) {
-                const themeClass = `reincarnation-theme-${reincarnationCount}`;
-                container.classList.add(themeClass);
-            }
-        }
-
+        // 레벨업 효과
         if (exp > 0 && exp % 100 === 0) {
             tamagotchi_functions.showLevelUpEffect();
         }
     },
 
     getDetailsByExp: (exp) => {
-        const REINCARNATION_EXP = 5000;
-        const reincarnationCount = Math.floor(exp / REINCARNATION_EXP);
-        const currentLevelExp = exp % REINCARNATION_EXP;
-
         const levels = [
-            { threshold: 0,    level: 1, name: "알",     maxExp: 100,  color: "#A0AEC0" },
-            { threshold: 1,    level: 2, name: "새싹",   maxExp: 100,  color: "#84CC16" },
-            { threshold: 100,  level: 3, name: "유아기", maxExp: 400,  color: "#14B8A6" },
-            { threshold: 400,  level: 4, name: "유년기1", maxExp: 900,  color: "#F97316" },
-            { threshold: 900,  level: 5, name: "유년기2", maxExp: 1500, color: "#EC4899" },
+            { threshold: 0, level: 1, name: "알", maxExp: 100, color: "#A0AEC0" },
+            { threshold: 1, level: 2, name: "새싹", maxExp: 100, color: "#84CC16" },
+            { threshold: 100, level: 3, name: "유아기", maxExp: 400, color: "#14B8A6" },
+            { threshold: 400, level: 4, name: "유년기1", maxExp: 900, color: "#F97316" },
+            { threshold: 900, level: 5, name: "유년기2", maxExp: 1500, color: "#EC4899" },
             { threshold: 1500, level: 6, name: "성장기", maxExp: 2200, color: "#10B981" },
             { threshold: 2200, level: 7, name: "성숙기", maxExp: 3000, color: "#3B82F6" },
             { threshold: 3000, level: 8, name: "완전체", maxExp: 4000, color: "#8B5CF6" },
             { threshold: 4000, level: 9, name: "궁극체", maxExp: 5000, color: "#EF4444" },
-            { threshold: REINCARNATION_EXP, level: 10, name: "전설", maxExp: 10000, color: "#F59E0B" }
+            { threshold: 5000, level: 10, name: "전설", maxExp: 10000, color: "#F59E0B" }
         ];
         
         let currentLevel = levels[0];
         for (let i = levels.length - 1; i >= 0; i--) {
-            if (currentLevelExp === 0 && exp > 0 && exp % REINCARNATION_EXP === 0) {
-                 currentLevel = levels[levels.length-2];
-                 break;
-            }
-            if (currentLevelExp >= levels[i].threshold) {
+            if (exp >= levels[i].threshold) {
                 currentLevel = levels[i];
                 break;
             }
@@ -898,10 +781,7 @@ const tamagotchi_functions = {
             level: currentLevel.level,
             levelName: currentLevel.name,
             maxExp: currentLevel.maxExp,
-            color: currentLevel.color,
-            reincarnationCount: reincarnationCount,
-            currentLevelExp: currentLevelExp,
-            threshold: currentLevel.threshold // 경험치 바 계산을 위해 추가
+            color: currentLevel.color
         };
     },
 
@@ -923,6 +803,7 @@ const tamagotchi_functions = {
 
 // 이벤트 리스너 설정
 function setupEventListeners() {
+    // 햄버거 메뉴 이벤트
     if (elements.hamburgerButton) {
         elements.hamburgerButton.addEventListener('click', sidebar.toggle);
     }
@@ -933,6 +814,7 @@ function setupEventListeners() {
         elements.sidebarOverlay.addEventListener('click', sidebar.close);
     }
     
+    // ESC 키로 사이드바 닫기
     document.addEventListener('keydown', (e) => {
         if (e.key === 'Escape' && sidebarOpen) {
             sidebar.close();
@@ -944,13 +826,18 @@ function setupEventListeners() {
 const app_functions = {
     initialize: async () => {
         try {
+            // Firebase 지속성 설정
             await setPersistence(auth, browserLocalPersistence);
+            
+            // 이벤트 리스너 설정
             setupEventListeners();
             
+            // 인증 상태 변경 감지
             onAuthStateChanged(auth, (user) => {
                 ui_functions.updateAuthUI(user);
             });
 
+            // 리다이렉트 결과 처리
             await getRedirectResult(auth);
 
         } catch (error) {
