@@ -85,13 +85,22 @@ const elements = {
     // 통계 및 버튼 요소들
     totalPages: document.getElementById('totalPages'),
     refreshButton: document.getElementById('refreshButton'),
-    shareButton: document.getElementById('shareButton')
+    shareButton: document.getElementById('shareButton'),
+    
+    // 건강 상태 요소들
+    healthIcon: document.getElementById('healthIcon'),
+    healthStatus: document.getElementById('healthStatus'),
+    healthMessage: document.getElementById('healthMessage'),
+    lastUpdateDays: document.getElementById('lastUpdateDays')
 };
 
 // 전역 상태
 let tamagotchiStateUnsubscribe = null;
 let currentRetryCount = 0;
 let sidebarOpen = false;
+// ▼▼▼▼▼ 3. 코드 효율성: 불필요한 요청 감소를 위한 변수 ▼▼▼▼▼
+let currentTamagotchiLevel = -1;
+// ▲▲▲▲▲ 변경점 ▲▲▲▲▲
 
 // 유틸리티 함수들 (기존 유지)
 const utils = {
@@ -390,11 +399,9 @@ const ui_functions = {
                 elements.userInfo.classList.add('hidden');
                 elements.settingsContainer?.classList.add('hidden');
                 
-                // ▼▼▼▼▼ 이 부분이 추가되었습니다 ▼▼▼▼▼
                 if (elements.authButton) {
                     elements.authButton.onclick = auth_functions.signIn;
                 }
-                // ▲▲▲▲▲ 이 부분이 추가되었습니다 ▲▲▲▲▲
 
             } else {
                 if (elements.welcomeMessage) {
@@ -716,11 +723,17 @@ const tamagotchi_functions = {
         
         const stateDocRef = doc(db, "users", user.uid, "tamagotchi", "state");
         tamagotchiStateUnsubscribe = onSnapshot(stateDocRef, (docSnap) => {
-            const totalExp = docSnap.exists() ? docSnap.data().totalExp || 0 : 0;
-            const pageCount = docSnap.exists() ? docSnap.data().pageCount || 0 : 0;
+            const data = docSnap.exists() ? docSnap.data() : {};
+            const totalExp = data.totalExp || 0;
+            const pageCount = data.pageCount || 0;
+            const lastUpdated = data.lastUpdated || null;
             
             tamagotchi_functions.updateVisuals(totalExp);
             ui_functions.updateStatistics(totalExp, pageCount);
+            
+            // ▼▼▼▼▼ 2. 사용자 경험(UX): 건강 상태 업데이트 함수 호출 ▼▼▼▼▼
+            tamagotchi_functions.updateHealthStatus(lastUpdated);
+            // ▲▲▲▲▲ 변경점 ▲▲▲▲▲
         }, (error) => {
             console.error("다마고치 상태 감지 오류:", error);
         });
@@ -729,11 +742,17 @@ const tamagotchi_functions = {
     updateVisuals: (exp) => {
         const { level, levelName, maxExp, color } = tamagotchi_functions.getDetailsByExp(exp);
         
+        // ▼▼▼▼▼ 3. 코드 효율성: 레벨 변경 시에만 이미지 새로고침 ▼▼▼▼▼
         if (elements.tamagotchiImage) {
-            const imageUrl = `https://asia-northeast3-notion-tamagotchi.cloudfunctions.net/serveTamagotchiImage?uid=${auth.currentUser?.uid}&t=${Date.now()}`;
-            elements.tamagotchiImage.src = imageUrl;
+            if (level !== currentTamagotchiLevel) {
+                currentTamagotchiLevel = level;
+                // 캐시 방지를 위해 level을 파라미터로 추가하여 URL 변경
+                const imageUrl = `https://asia-northeast3-notion-tamagotchi.cloudfunctions.net/serveTamagotchiImage?uid=${auth.currentUser?.uid}&v=${level}`;
+                elements.tamagotchiImage.src = imageUrl;
+            }
             elements.tamagotchiImage.style.backgroundColor = color;
         }
+        // ▲▲▲▲▲ 변경점 ▲▲▲▲▲
         
         if (elements.tamagotchiLevel) {
             elements.tamagotchiLevel.textContent = `Level ${level}: ${levelName}`;
@@ -754,6 +773,49 @@ const tamagotchi_functions = {
             tamagotchi_functions.showLevelUpEffect();
         }
     },
+
+    // ▼▼▼▼▼ 2. 사용자 경험(UX): 건강 상태 업데이트 함수 추가 ▼▼▼▼▼
+    updateHealthStatus: (lastUpdated) => {
+        if (!lastUpdated || !elements.healthStatus) return;
+
+        const now = new Date();
+        const lastUpdateDate = lastUpdated.toDate();
+        const diffHours = (now.getTime() - lastUpdateDate.getTime()) / (1000 * 60 * 60);
+        const diffDays = Math.floor(diffHours / 24);
+    
+        let status, message, icon, colorClass;
+    
+        if (diffHours < 24) {
+            status = "활발함";
+            message = "다마고치가 아주 건강해요!";
+            icon = "💚";
+            colorClass = "text-green-600";
+        } else if (diffHours < 72) {
+            status = "평범함";
+            message = `최근 활동이 없었어요. ${diffDays}일 동안 업데이트가 없네요.`;
+            icon = "💛";
+            colorClass = "text-yellow-500";
+        } else {
+            status = "아픔";
+            message = `오랫동안 돌보지 않아 아파요... ${diffDays}일 동안 업데이트가 없네요.`;
+            icon = "💔";
+            colorClass = "text-red-500";
+        }
+    
+        elements.healthStatus.textContent = status;
+        elements.healthStatus.className = `text-sm font-bold ${colorClass}`;
+        elements.healthMessage.textContent = message;
+        elements.healthIcon.textContent = icon;
+        
+        if (diffDays >= 1) {
+            elements.lastUpdateDays.textContent = `${diffDays}일 전`;
+        } else if (diffHours >= 1) {
+            elements.lastUpdateDays.textContent = `${Math.floor(diffHours)}시간 전`;
+        } else {
+            elements.lastUpdateDays.textContent = "방금 전";
+        }
+    },
+    // ▲▲▲▲▲ 변경점 ▲▲▲▲▲
 
     getDetailsByExp: (exp) => {
         const levels = [
