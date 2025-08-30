@@ -60,6 +60,7 @@ const elements = {
     propertySelect: document.getElementById('propertySelect'),
     startButton: document.getElementById('startButton'),
     gameSection: document.getElementById('gameSection'),
+    tamagotchiContainer: document.getElementById('tamagotchiContainer'),
     tamagotchiImage: document.getElementById('tamagotchiImage'),
     tamagotchiLevel: document.getElementById('tamagotchiLevel'),
     levelText: document.getElementById('levelText'), 
@@ -813,7 +814,6 @@ const tamagotchi_functions = {
             elements.tamagotchiImage.style.borderColor = color;
         }
         
-        // 환생 횟수 UI 업데이트 로직
         if (elements.reincarnationDisplay) {
             if (reincarnationCount > 0) {
                 elements.reincarnationDisplay.textContent = `💎x${reincarnationCount}`;
@@ -823,7 +823,6 @@ const tamagotchi_functions = {
             }
         }
 
-        // 레벨 텍스트 업데이트 로직
         if (elements.levelText) {
             elements.levelText.textContent = `Level ${level}: ${levelName}`;
         }
@@ -850,15 +849,14 @@ const tamagotchi_functions = {
             elements.expBar.style.backgroundColor = color;
         }
         
-        // 배경화면 변경 로직
-        const body = document.body;
-        // 기존 환생 테마 클래스 모두 제거
-        body.className = body.className.split(' ').filter(c => !c.startsWith('reincarnation-')).join(' ');
+        if (elements.tamagotchiContainer) {
+            const container = elements.tamagotchiContainer;
+            container.className = container.className.split(' ').filter(c => !c.startsWith('reincarnation-theme-')).join(' ');
 
-        if (reincarnationCount > 0) {
-            // 환생 횟수에 맞는 새로운 클래스 추가
-            const themeClass = `reincarnation-${reincarnationCount}`;
-            body.classList.add(themeClass);
+            if (reincarnationCount > 0) {
+                const themeClass = `reincarnation-theme-${reincarnationCount}`;
+                container.classList.add(themeClass);
+            }
         }
 
         if (exp > 0 && exp % 100 === 0) {
