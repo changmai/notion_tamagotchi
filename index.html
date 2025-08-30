@@ -11,7 +11,7 @@
     <meta property="og:description" content="Notion으로 다마고치를 키우며 생산성을 높이세요!">
     <meta property="og:type" content="website">
     
-    <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>🥚</text></svg>">
+    <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>🥚</text></svg>">
     
     <script src="https://cdn.tailwindcss.com"></script>
     <script>
@@ -61,6 +61,7 @@
             border-radius: 20px;
             position: relative;
             overflow: hidden;
+            transition: background 1s ease;
         }
         
         .tamagotchi-container::before {
@@ -73,6 +74,28 @@
             background: linear-gradient(45deg, transparent 30%, rgba(255,255,255,0.1) 50%, transparent 70%);
             animation: shimmer 3s infinite;
         }
+
+        /* --- ✨ 10가지 환생 테마 ✨ --- */
+        /* 환생 1회: Forest Green */
+        .tamagotchi-container.reincarnation-theme-1 { background: linear-gradient(135deg, #22c55e 0%, #15803d 100%); }
+        /* 환생 2회: Fiery Orange */
+        .tamagotchi-container.reincarnation-theme-2 { background: linear-gradient(135deg, #f97316 0%, #c2410c 100%); }
+        /* 환생 3회: Mystic Fuchsia */
+        .tamagotchi-container.reincarnation-theme-3 { background: linear-gradient(135deg, #d946ef 0%, #a21caf 100%); }
+        /* 환생 4회: Oceanic Blue */
+        .tamagotchi-container.reincarnation-theme-4 { background: linear-gradient(135deg, #38bdf8 0%, #0369a1 100%); }
+        /* 환생 5회: Crimson Red */
+        .tamagotchi-container.reincarnation-theme-5 { background: linear-gradient(135deg, #f43f5e 0%, #b91c1c 100%); }
+        /* 환생 6회: Golden Yellow */
+        .tamagotchi-container.reincarnation-theme-6 { background: linear-gradient(135deg, #facc15 0%, #b45309 100%); }
+        /* 환생 7회: Celestial Teal */
+        .tamagotchi-container.reincarnation-theme-7 { background: linear-gradient(135deg, #2dd4bf 0%, #0f766e 100%); }
+        /* 환생 8회: Starlight Indigo */
+        .tamagotchi-container.reincarnation-theme-8 { background: linear-gradient(135deg, #818cf8 0%, #4338ca 100%); }
+        /* 환생 9회: Lunar Gray */
+        .tamagotchi-container.reincarnation-theme-9 { background: linear-gradient(135deg, #9ca3af 0%, #4b5563 100%); }
+        /* 환생 10회: Prismatic Legend */
+        .tamagotchi-container.reincarnation-theme-10 { background: linear-gradient(135deg, #f43f5e 0%, #eab308 33%, #22c55e 66%, #3b82f6 100%); }
         
         @keyframes shimmer {
             0% { transform: translateX(-100%) translateY(-100%) rotate(45deg); }
@@ -150,39 +173,6 @@
             background: rgba(255, 255, 255, 0.3);
             border-radius: 2px;
         }
-
-/* 기본 배경 스타일 */
-    body {
-        background: linear-gradient(135deg, #1f2937 0%, #0a0e14 100%); /* 기본 다크 그레이 */
-        transition: background-color 1s ease, background-image 1s ease; /* 부드러운 전환 효과 */
-    }
-
-    /* 환생 1회차 배경 */
-    body.reincarnation-1 {
-        background: linear-gradient(135deg, #60A5FA 0%, #3B82F6 100%); /* 파스텔 블루 */
-    }
-
-    /* 환생 2회차 배경 */
-    body.reincarnation-2 {
-        background: linear-gradient(135deg, #FDBA74 0%, #F59E0B 100%); /* 따뜻한 오렌지 */
-    }
-
-    /* 환생 3회차 배경 */
-    body.reincarnation-3 {
-        background: linear-gradient(135deg, #A78BFA 0%, #8B5CF6 100%); /* 신비로운 퍼플 */
-    }
-
-    /* 환생 4회차 배경 */
-    body.reincarnation-4 {
-        background: linear-gradient(135deg, #34D399 0%, #10B981 100%); /* 상쾌한 그린 */
-    }
-
-    /* 환생 5회차 배경 (더욱 특별하게) */
-    body.reincarnation-5 {
-        background: linear-gradient(135deg, #FCA5A5 0%, #EF4444 100%); /* 열정적인 레드 */
-    }
-    /* 더 많은 환생 테마는 여기에 추가 */
-
     </style>
 </head>
 <body class="bg-gradient-to-br from-tamagotchi-bg to-blue-50 min-h-screen font-sans overflow-x-hidden">
@@ -323,7 +313,7 @@
                 <p class="text-gray-500 text-sm">Notion에서 작업하면 성장해요!</p>
             </div>
             
-            <div class="tamagotchi-container p-8 mb-6 min-h-[280px] flex flex-col items-center justify-center relative">
+            <div id="tamagotchiContainer" class="tamagotchi-container p-8 mb-6 min-h-[280px] flex flex-col items-center justify-center relative">
                 <div class="relative">
                     <img id="tamagotchiImage" 
                          src="https://placehold.co/150x150/E2E8F0/A0AEC0?text=💤" 
