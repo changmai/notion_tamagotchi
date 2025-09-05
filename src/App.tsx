@@ -398,7 +398,6 @@ function App() {
                             totalExp={tamagotchiState.totalExp}
                             healthStatus={healthStatus}
                             pageCount={tamagotchiState.pageCount}
-                            isEmbedMode={true}
                         />
                     </div>
                 </div>
