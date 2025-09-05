@@ -338,7 +338,7 @@ const CharacterSVG: React.FC<{ svgRef: React.Ref<SVGSVGElement>, level: number }
                         {/* 룬 문자들 (타원 궤도를 따라, 바닥에 깔린 느낌) */}
                         {Array.from({ length: circleStyle.runeCount }, (_, i) => {
                             const angle = (360 / circleStyle.runeCount) * i;
-                            const runes = ['ᚱ', 'ᚢ', 'ᚾ', 'ᛖ', 'ᚴ', 'ᚨ', 'ᚦ', 'ᛏ', 'ᚠ', 'ᚺ', 'ᛚ', 'ᚷ'];
+                            const runes = ['ᚱ', 'ᚢ', 'ᚾ', 'ᛖ', 'ᚴ', 'ᚨ', 'ᚦ', 'ᛁ', 'ᚠ', 'ᚺ', 'ᛚ', 'ᚷ'];
                             return (
                                 <text
                                     key={i}
@@ -592,9 +592,20 @@ interface CharacterCardProps {
         lastUpdateText: string;
     } | null;
     pageCount?: number;
+    isEmbedMode?: boolean; // **추가: 임베드 모드 여부**
 }
 
-const CharacterCard: React.FC<CharacterCardProps> = ({ level, rebirthCount, progress, xpInCurrentLevel, xpForNextLevel, totalExp, healthStatus, pageCount = 0 }) => {
+const CharacterCard: React.FC<CharacterCardProps> = ({ 
+    level, 
+    rebirthCount, 
+    progress, 
+    xpInCurrentLevel, 
+    xpForNextLevel, 
+    totalExp, 
+    healthStatus, 
+    pageCount = 0,
+    isEmbedMode = false // **추가: 기본값 false**
+}) => {
     const [clickCount, setClickCount] = useState(0);
     const [isAnimating, setIsAnimating] = useState(false);
 
@@ -688,9 +699,12 @@ const CharacterCard: React.FC<CharacterCardProps> = ({ level, rebirthCount, prog
     };
 
     const currentTheme = levelStyles[level] || levelStyles[1];
+    
+    // **수정: 임베드 모드일 때 그림자 제거**
+    const shadowClass = isEmbedMode ? '' : 'shadow-2xl';
 
     return (
-        <div ref={cardRef} className="relative w-full max-w-sm mx-auto rounded-xl shadow-2xl overflow-hidden border-4" style={{ borderColor: currentTheme.strokeFill, backgroundColor: currentTheme.highlightFill }}>
+        <div ref={cardRef} className={`relative w-full max-w-sm mx-auto rounded-xl overflow-hidden border-4 ${shadowClass}`} style={{ borderColor: currentTheme.strokeFill, backgroundColor: currentTheme.highlightFill }}>
             <div className="p-4 border-b-2" style={{ borderColor: currentTheme.bodyFill }}>
                 <p className="text-2xl font-bold text-white text-center" style={{ textShadow: `2px 2px 0px ${currentTheme.strokeFill}` }}>My Notion Pet</p>
                 <div className="flex justify-between items-center mt-1 text-xs">
