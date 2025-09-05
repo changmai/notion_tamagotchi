@@ -715,4 +715,3 @@ const CharacterCard: React.FC<CharacterCardProps> = ({ level, rebirthCount, prog
 };
 
 export default CharacterCard;
-
