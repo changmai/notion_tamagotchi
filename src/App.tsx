@@ -381,8 +381,21 @@ function App() {
     console.log(`총 경험치: ${tamagotchiState.totalExp}, 계산된 rebirth: ${levelData.rebirthCount}, DB rebirth: ${tamagotchiState.rebirthCount}`);
     
     if (isLoading) {
-        return <div className="bg-slate-900 min-h-screen flex items-center justify-center text-white" style={{fontFamily: "'Jua', sans-serif"}}>캐릭터를 불러오는 중...</div>;
+        return (
+            <div
+            className={`min-h-screen flex items-center justify-center text-white ${
+                publicUserId ? '' : 'bg-slate-900'
+            }`}
+            style={{
+                fontFamily: "'Jua', sans-serif",
+                ...(publicUserId ? { backgroundColor: 'transparent' } : {}),
+            }}
+            >
+            캐릭터를 불러오는 중...
+            </div>
+        );
     }
+
     
     if (publicUserId) {
         return (
