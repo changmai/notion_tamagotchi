@@ -593,8 +593,6 @@ const CharacterCard: React.FC<CharacterCardProps> = ({ level, rebirthCount, prog
     const svgRef = useRef<SVGSVGElement>(null);
     const bounceTimeline = useRef<gsap.core.Timeline | null>(null);
 
-    const styles = levelStyles[level] || levelStyles[1];
-
     useLayoutEffect(() => {
         if (!characterRef.current || !cardRef.current || !svgRef.current) return;
 
