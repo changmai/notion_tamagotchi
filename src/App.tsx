@@ -167,19 +167,30 @@ function App() {
         }
     };
 
+    // ✨ FIX: 데스크톱에서도 안정적으로 작동하도록 공유 기능 개선
     const handleShare = async () => {
         if (!currentUser) return;
         const publicUrl = `${window.location.origin}?uid=${currentUser.uid}`;
         const shareData = { title: '나의 Notion 펫 구경하기!', text: 'Notion으로 키우는 제 펫을 구경해보세요!', url: publicUrl };
+        
         try {
-            if (navigator.share) {
+            // navigator.share가 존재하고, 데이터를 공유할 수 있는지 먼저 확인 (모바일)
+            if (navigator.share && navigator.canShare && navigator.canShare(shareData)) {
                 await navigator.share(shareData);
             } else {
-                await navigator.clipboard.writeText(publicUrl);
-                alert("공유 링크가 클립보드에 복사되었습니다!");
+                // 지원하지 않으면 클립보드 복사로 바로 대체
+                throw new Error('Web Share API not supported.');
             }
         } catch (error) {
-            console.error("Share failed:", error);
+            // Web Share API가 실패하거나 지원되지 않는 모든 경우 (데스크톱 등)
+            console.log("Web Share failed, falling back to clipboard:", error);
+            try {
+                await navigator.clipboard.writeText(publicUrl);
+                alert("공유 링크가 클립보드에 복사되었습니다!");
+            } catch (copyError) {
+                console.error("Failed to copy to clipboard:", copyError);
+                alert("공유에 실패했습니다. 수동으로 링크를 복사해주세요.");
+            }
         }
     };
 
@@ -250,12 +261,20 @@ function App() {
         }
         
         const stateRef = doc(db, "users", userIdToFetch, "tamagotchi", "state");
-        const unsubscribe = onSnapshot(stateRef, (docSnap: DocumentSnapshot) => {
-            if (docSnap.exists()) {
-                setTamagotchiState(docSnap.data() as TamagotchiState);
+        // ✨ FIX: onSnapshot에 에러 핸들러 추가하여 로딩 멈춤 현상 해결
+        const unsubscribe = onSnapshot(stateRef, 
+            (docSnap: DocumentSnapshot) => {
+                if (docSnap.exists()) {
+                    setTamagotchiState(docSnap.data() as TamagotchiState);
+                }
+                setIsLoading(false); // 데이터가 있든 없든 로딩 상태 종료
+            },
+            (error) => {
+                console.error("공개 데이터 로딩 실패:", error);
+                setIsLoading(false); // 에러 발생 시에도 로딩 상태 종료
+                alert("캐릭터 정보를 불러오는 데 실패했습니다. Firestore 권한을 확인해주세요.");
             }
-            setIsLoading(false);
-        });
+        );
 
         return () => unsubscribe();
     }, [currentUser, publicUserId]);
