@@ -338,7 +338,7 @@ const CharacterSVG: React.FC<{ svgRef: React.Ref<SVGSVGElement>, level: number }
                         {/* 룬 문자들 (타원 궤도를 따라, 바닥에 깔린 느낌) */}
                         {Array.from({ length: circleStyle.runeCount }, (_, i) => {
                             const angle = (360 / circleStyle.runeCount) * i;
-                            const runes = ['ᚱ', 'ᚢ', 'ᚾ', 'ᛖ', 'ᚴ', 'ᚨ', 'ᚦ', 'ᛁ', 'ᚠ', 'ᚺ', 'ᛚ', 'ᚷ'];
+                            const runes = ['ᚱ', 'ᚢ', 'ᚾ', 'ᛖ', 'ᚴ', 'ᚨ', 'ᚦ', 'ᛏ', 'ᚠ', 'ᚺ', 'ᛚ', 'ᚷ'];
                             return (
                                 <text
                                     key={i}
@@ -584,9 +584,17 @@ interface CharacterCardProps {
     xpInCurrentLevel: number;
     xpForNextLevel: number;
     totalExp: number;
+    healthStatus?: {
+        icon: string;
+        status: string;
+        message: string;
+        color: string;
+        lastUpdateText: string;
+    } | null;
+    pageCount?: number;
 }
 
-const CharacterCard: React.FC<CharacterCardProps> = ({ level, rebirthCount, progress, xpInCurrentLevel, xpForNextLevel, totalExp }) => {
+const CharacterCard: React.FC<CharacterCardProps> = ({ level, rebirthCount, progress, xpInCurrentLevel, xpForNextLevel, totalExp, healthStatus, pageCount = 0 }) => {
     const [clickCount, setClickCount] = useState(0);
     const [isAnimating, setIsAnimating] = useState(false);
 
@@ -652,8 +660,10 @@ const CharacterCard: React.FC<CharacterCardProps> = ({ level, rebirthCount, prog
             () => {
                 gsap.timeline({ onComplete: onAnimationComplete })
                     .to(animatedElements, { scaleY: 0.8, scaleX: 1.2, duration: 0.1, ease: 'power2.in', transformOrigin: 'center bottom' })
-                    .to(animatedElements, { y: -90, rotation: 360, scaleY: 1, scaleX: 1, duration: 0.4, ease: 'power2.out', transformOrigin: 'center center' })
-                    .to(animatedElements, { y: 0, duration: 0.3, ease: 'bounce.out', transformOrigin: 'center bottom' });
+                    .set(animatedElements, { transformOrigin: 'center center' })
+                    .to(animatedElements, { y: -90, rotation: 360, scaleY: 1, scaleX: 1, duration: 0.4, ease: 'power2.out' })
+                    .set(animatedElements, { transformOrigin: 'center bottom' })
+                    .to(animatedElements, { y: 0, duration: 0.3, ease: 'bounce.out' });
             },
             () => {
                 gsap.timeline({ onComplete: onAnimationComplete })
@@ -689,6 +699,23 @@ const CharacterCard: React.FC<CharacterCardProps> = ({ level, rebirthCount, prog
                 </div>
             </div>
             <div className="p-4">
+                {/* 건강 상태 표시 (캐릭터 위쪽) */}
+                {healthStatus && (
+                    <div className="mb-3 flex justify-center">
+                        <div className="inline-flex items-center px-3 py-1.5 rounded-full text-xs font-medium shadow-sm border-2" 
+                             style={{ 
+                                 backgroundColor: currentTheme.highlightFill, 
+                                 borderColor: currentTheme.strokeFill,
+                                 color: currentTheme.strokeFill 
+                             }}>
+                            <span className="text-sm mr-1.5">{healthStatus.icon}</span>
+                            <span className="font-bold">{healthStatus.status}</span>
+                            <span className="mx-1.5 opacity-50">•</span>
+                            <span className="text-xs opacity-75">{healthStatus.lastUpdateText}</span>
+                        </div>
+                    </div>
+                )}
+
                 <div ref={characterRef} onClick={handleClick} className="cursor-pointer w-40 h-40 mx-auto relative" title="Click me!">
                     {/* SVG 캐릭터 레이어 (날개와 마법진 모두 포함) */}
                     <div className="relative z-10">
@@ -703,11 +730,37 @@ const CharacterCard: React.FC<CharacterCardProps> = ({ level, rebirthCount, prog
                         <span>XP: {`${xpInCurrentLevel.toFixed(0)} / ${xpForNextLevel.toFixed(0)}`}</span>
                         <span>Total: {totalExp}</span>
                     </div>
-                     <div className="text-center">
-                        <span className="inline-block px-3 py-1 text-xs font-medium rounded-full" style={{ backgroundColor: currentTheme.bodyFill, color: currentTheme.strokeFill }}>
-                            Interactions: {clickCount}
-                        </span>
+                    
+                    {/* 통계 정보 영역 - 컴팩트한 한 줄 레이아웃 */}
+                    <div className="flex justify-center space-x-4">
+                        <div className="flex items-center px-3 py-1.5 rounded-lg border-2" 
+                             style={{ 
+                                 backgroundColor: currentTheme.bodyFill, 
+                                 borderColor: currentTheme.strokeFill,
+                                 color: currentTheme.strokeFill 
+                             }}>
+                            <span className="text-xs font-medium mr-2">완료한 일</span>
+                            <span className="font-bold text-sm">{pageCount}</span>
+                        </div>
+                        <div className="flex items-center px-3 py-1.5 rounded-lg border-2" 
+                             style={{ 
+                                 backgroundColor: currentTheme.bodyFill, 
+                                 borderColor: currentTheme.strokeFill,
+                                 color: currentTheme.strokeFill 
+                             }}>
+                            <span className="text-xs font-medium mr-2">상호작용</span>
+                            <span className="font-bold text-sm">{clickCount}</span>
+                        </div>
                     </div>
+
+                    {/* 건강 상태 메시지 (하단) */}
+                    {healthStatus && (
+                        <div className="text-center">
+                            <p className="text-xs italic opacity-80" style={{ color: currentTheme.strokeFill }}>
+                                "{healthStatus.message}"
+                            </p>
+                        </div>
+                    )}
                 </div>
             </div>
         </div>

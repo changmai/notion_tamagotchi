@@ -45,6 +45,20 @@ const MAX_LEVEL = 10;
 const XP_FOR_REBIRTH_AT_MAX_LEVEL = 500;
 const CUMULATIVE_XP_FOR_LEVEL = [0, 100, 250, 450, 700, 1000, 1350, 1750, 2200, 2700];
 
+// --- 레벨별 스타일 정의 (CharacterCard와 동일) ---
+const levelStyles: { [key: number]: any } = {
+    1: { bodyFill: 'rgb(251, 113, 133)', highlightFill: 'rgb(253, 164, 175)', strokeFill: 'rgb(136, 19, 55)', tongueFill: 'rgb(220, 20, 60)', showCrown: false, showGem: false, showWingsAndMagic: false, showAura: false },
+    2: { bodyFill: '#87CEEB', highlightFill: '#B0E0E6', strokeFill: '#4682B4', tongueFill: '#FF6347', showCrown: false, showGem: false, showWingsAndMagic: false, showAura: false },
+    3: { bodyFill: '#87CEEB', highlightFill: '#B0E0E6', strokeFill: '#4682B4', tongueFill: '#FF6347', showCrown: true, crownFill: '#FFD700', showGem: false, showWingsAndMagic: false, showAura: false },
+    4: { bodyFill: '#90EE90', highlightFill: '#98FB98', strokeFill: '#2E8B57', tongueFill: '#FF7F50', showCrown: true, crownFill: '#FFD700', showGem: false, showWingsAndMagic: false, showAura: false },
+    5: { bodyFill: '#90EE90', highlightFill: '#98FB98', strokeFill: '#2E8B57', tongueFill: '#FF7F50', showCrown: true, crownFill: '#FFD700', showGem: true, gemFill: '#FF4500', showWingsAndMagic: false, showAura: false },
+    6: { bodyFill: '#FFD700', highlightFill: '#FFFACD', strokeFill: '#B8860B', tongueFill: '#E9967A', showCrown: true, crownFill: '#C0C0C0', showGem: true, gemFill: '#FF4500', showWingsAndMagic: true, showAura: false },
+    7: { bodyFill: '#FFD700', highlightFill: '#FFFACD', strokeFill: '#B8860B', tongueFill: '#E9967A', showCrown: true, crownFill: '#C0C0C0', showGem: true, gemFill: '#00FFFF', showWingsAndMagic: true, showAura: false },
+    8: { bodyFill: '#E6E6FA', highlightFill: '#FFFFFF', strokeFill: '#9370DB', tongueFill: '#F08080', showCrown: true, crownFill: '#FFD700', showGem: true, gemFill: '#00FFFF', showWingsAndMagic: true, showAura: false },
+    9: { bodyFill: '#E6E6FA', highlightFill: '#FFFFFF', strokeFill: '#9370DB', tongueFill: '#F08080', showCrown: true, crownFill: '#FFD700', showGem: true, gemFill: '#DA70D6', showWingsAndMagic: true, showAura: true, auraFill: 'gold' },
+    10: { bodyFill: '#D3D3D3', highlightFill: '#F5F5F5', strokeFill: '#696969', tongueFill: '#B22222', showCrown: true, crownFill: '#FFD700', showGem: true, gemFill: '#DA70D6', showWingsAndMagic: true, showAura: true, auraFill: 'url(#rainbowAura)' },
+};
+
 const calculateLevelData = (currentCycleXp: number) => {
     let level = 1;
     for (let i = CUMULATIVE_XP_FOR_LEVEL.length - 1; i >= 0; i--) {
@@ -334,6 +348,7 @@ function App() {
 
     // --- 렌더링을 위한 데이터 계산 ---
     const { level, progress, xpInCurrentLevel, xpForNextLevel } = calculateLevelData(tamagotchiState.totalExp);
+    const currentTheme = levelStyles[level] || levelStyles[1];
     
     if (isLoading) {
         return <div className="bg-slate-900 min-h-screen flex items-center justify-center text-white" style={{fontFamily: "'Jua', sans-serif"}}>캐릭터를 불러오는 중...</div>;
@@ -351,6 +366,8 @@ function App() {
                             xpInCurrentLevel={xpInCurrentLevel}
                             xpForNextLevel={xpForNextLevel}
                             totalExp={tamagotchiState.totalExp}
+                            healthStatus={healthStatus}
+                            pageCount={tamagotchiState.pageCount}
                         />
                     </div>
                 </div>
@@ -366,95 +383,7 @@ function App() {
                 .hamburger-open .hamburger-line:nth-child(1) { transform: rotate(45deg) translate(5px, 5px); }
                 .hamburger-open .hamburger-line:nth-child(2) { opacity: 0; }
                 .hamburger-open .hamburger-line:nth-child(3) { transform: rotate(-45deg) translate(7px, -6px); }
-                .sidebar { transform: translateX(-100%); transition: transform 0.3s ease; }
-                .sidebar.open { transform: translateX(0); }
-                .glass-effect { background: rgba(255, 255, 255, 0.9); backdrop-filter: blur(8px); }
-                .custom-scrollbar::-webkit-scrollbar { width: 4px; }
-                .custom-scrollbar::-webkit-scrollbar-track { background: rgba(0, 0, 0, 0.1); }
-                .custom-scrollbar::-webkit-scrollbar-thumb { background: rgba(0, 0, 0, 0.3); border-radius: 2px; }
-                .btn-primary { background-color: #111827; color: white; transition: all 0.2s ease; }
-                .btn-primary:hover { background-color: #374151; transform: translateY(-2px); }
-                .btn-success { background-color: #16a34a; color: white; transition: all 0.2s ease; }
-                .btn-success:hover { background-color: #15803d; transform: translateY(-2px); }
             `}</style>
-            
-            <button id="hamburgerButton" onClick={toggleSidebar} className={`fixed top-6 left-6 z-50 w-12 h-12 bg-white/80 backdrop-blur-sm rounded-lg shadow-md border border-slate-200 flex flex-col items-center justify-center space-y-1.5 transition-all duration-300 hover:bg-white hover:scale-105 ${isSidebarOpen ? 'hamburger-open' : ''}`}>
-                <div className="hamburger-line w-6 h-0.5 bg-slate-800 rounded-full"></div>
-                <div className="hamburger-line w-6 h-0.5 bg-slate-800 rounded-full"></div>
-                <div className="hamburger-line w-6 h-0.5 bg-slate-800 rounded-full"></div>
-            </button>
-            <div id="sidebarOverlay" onClick={toggleSidebar} className={`fixed inset-0 bg-black/50 backdrop-blur-sm z-40 transition-opacity duration-300 ${isSidebarOpen ? 'opacity-100' : 'opacity-0 pointer-events-none'}`}></div>
-            <div id="sidebar" className={`sidebar fixed left-0 top-0 h-full w-80 bg-slate-50 border-r border-slate-200 z-50 shadow-2xl ${isSidebarOpen ? 'open' : ''}`}>
-                <div className="p-6 h-full flex flex-col custom-scrollbar overflow-y-auto">
-                    <div className="flex items-center justify-between mb-8">
-                        <div className="flex items-center space-x-3">
-                            <div className="text-3xl">🥚</div>
-                            <div>
-                                <h2 className="text-lg font-bold text-slate-800">설정</h2>
-                            </div>
-                        </div>
-                        <button onClick={toggleSidebar} className="w-8 h-8 rounded-lg hover:bg-slate-200 flex items-center justify-center transition">
-                            <svg className="w-5 h-5 text-slate-600" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M6 18L18 6M6 6l12 12"/></svg>
-                        </button>
-                    </div>
-
-                    <div className="mb-8">
-                        {currentUser ? (
-                            <div className="text-center">
-                                <div className="w-16 h-16 bg-slate-700 rounded-full mx-auto mb-3 flex items-center justify-center"><span className="text-white font-bold text-xl">{currentUser.displayName?.charAt(0).toUpperCase()}</span></div>
-                                <p className="font-semibold text-slate-800 mb-1 text-sm">{currentUser.displayName}</p>
-                                <button onClick={handleSignOut} className="text-slate-500 hover:text-red-500 text-xs transition">로그아웃</button>
-                            </div>
-                        ) : (
-                            <div className="text-center">
-                                <div className="w-16 h-16 bg-slate-200 rounded-full mx-auto mb-3 flex items-center justify-center"><svg className="w-8 h-8 text-slate-500" fill="currentColor" viewBox="0 0 20 20"><path fillRule="evenodd" d="M10 9a3 3 0 100-6 3 3 0 000 6zm-7 9a7 7 0 1114 0H3z" clipRule="evenodd"/></svg></div>
-                                <p className="text-slate-600 mb-4 text-xs">로그인이 필요합니다</p>
-                                <button onClick={handleSignIn} className="btn-primary font-semibold py-2 px-4 rounded-lg w-full text-sm">구글로 로그인</button>
-                            </div>
-                        )}
-                    </div>
-                    
-                    {currentUser && (
-                         <div className="flex-1 space-y-4">
-                            <div className="bg-white rounded-lg p-4 border border-slate-200">
-                                <h3 className="font-semibold text-slate-700 text-sm mb-3">1. Notion 연동</h3>
-                                <button onClick={handleNotionConnect} disabled={loadingStates.notion} className={`${notionToken ? 'bg-green-600' : 'bg-slate-800'} hover:bg-opacity-80 text-white font-semibold py-2 px-3 rounded-lg w-full text-xs transition`}>
-                                    {loadingStates.notion ? "..." : (notionToken ? "Notion 재연동" : "Notion 연동하기")}
-                                </button>
-                                {notionToken && <p className="mt-2 text-xs text-green-600 font-semibold">✓ 연동 완료</p>}
-                            </div>
-                            
-                            {notionToken && (
-                                <div className="bg-white rounded-lg p-4 border border-slate-200">
-                                    <h3 className="font-semibold text-slate-700 text-sm mb-3">2. 경험치 설정</h3>
-                                    <div className="space-y-3">
-                                        <div>
-                                            <label className="block text-xs font-medium text-slate-700 mb-1">데이터베이스</label>
-                                            <select value={settings.selectedDbId} onChange={e => setSettings({...settings, selectedDbId: e.target.value})} disabled={loadingStates.db} className="w-full p-2 border border-slate-300 rounded-lg bg-white text-xs">
-                                                <option value="">{loadingStates.db ? "로딩중..." : "-- DB 선택 --"}</option>
-                                                {databases.map(db => <option key={db.id} value={db.id}>{db.title}</option>)}
-                                            </select>
-                                        </div>
-                                        <div>
-                                            <label className="block text-xs font-medium text-slate-700 mb-1">경험치 속성</label>
-                                            <select value={settings.propertyName} onChange={e => setSettings({...settings, propertyName: e.target.value})} disabled={loadingStates.prop || !settings.selectedDbId} className="w-full p-2 border border-slate-300 rounded-lg bg-white text-xs">
-                                                <option value="">{loadingStates.prop ? "로딩중..." : "-- 속성 선택 --"}</option>
-                                                {properties.map(prop => <option key={prop} value={prop}>{prop}</option>)}
-                                            </select>
-                                        </div>
-                                    </div>
-                                    <button onClick={handleSaveSettings} disabled={loadingStates.save || !settings.selectedDbId || !settings.propertyName} className="btn-success text-white font-semibold py-2 px-3 rounded-lg mt-3 w-full text-sm">
-                                        {loadingStates.save ? "..." : "설정 저장"}
-                                    </button>
-                                </div>
-                            )}
-                        </div>
-                    )}
-                    <div className="mt-auto pt-6 border-t border-slate-200">
-                        <p className="text-xs text-slate-400 text-center">Made with ❤️</p>
-                    </div>
-                </div>
-            </div>
 
             <div className="min-h-screen flex items-center justify-center p-4">
                 {!currentUser && !publicUserId ? (
@@ -468,7 +397,111 @@ function App() {
                         </div>
                     </div>
                 ) : (
-                    <div className="w-full max-w-sm mx-auto">
+                    <div className="w-full max-w-sm mx-auto relative overflow-hidden">
+                        {/* 햄버거 버튼 - 캐릭터 박스 내부 좌상단 */}
+                        {currentUser && !publicUserId && (
+                            <button 
+                                onClick={toggleSidebar} 
+                                className={`absolute top-2 left-2 z-50 w-8 h-8 rounded-lg shadow-md flex flex-col items-center justify-center space-y-1 transition-all duration-300 hover:scale-105 ${isSidebarOpen ? 'hamburger-open' : ''}`}
+                                style={{ 
+                                    backgroundColor: currentTheme.highlightFill,
+                                    border: `2px solid ${currentTheme.strokeFill}`
+                                }}
+                            >
+                                <div className="hamburger-line w-4 h-0.5 rounded-full" style={{ backgroundColor: currentTheme.strokeFill }}></div>
+                                <div className="hamburger-line w-4 h-0.5 rounded-full" style={{ backgroundColor: currentTheme.strokeFill }}></div>
+                                <div className="hamburger-line w-4 h-0.5 rounded-full" style={{ backgroundColor: currentTheme.strokeFill }}></div>
+                            </button>
+                        )}
+
+                        {/* 슬라이드 사이드바 - overflow hidden으로 숨김 처리 */}
+                        {currentUser && !publicUserId && (
+                            <>
+                                <div onClick={toggleSidebar} className={`fixed inset-0 bg-black/50 backdrop-blur-sm z-40 transition-opacity duration-300 ${isSidebarOpen ? 'opacity-100' : 'opacity-0 pointer-events-none'}`}></div>
+                                <div className={`absolute left-0 top-0 h-full w-72 rounded-xl border-4 shadow-2xl z-50 transition-transform duration-300 ease-in-out ${isSidebarOpen ? 'translate-x-0' : '-translate-x-full'}`}
+                                     style={{ 
+                                         backgroundColor: currentTheme.highlightFill,
+                                         borderColor: currentTheme.strokeFill
+                                     }}>
+                                    <div className="p-4 h-full flex flex-col overflow-y-auto">
+                                        <div className="flex items-center justify-between mb-6">
+                                            <div className="flex items-center space-x-2">
+                                                <div className="text-2xl">🥚</div>
+                                                <div>
+                                                    <h2 className="text-sm font-bold" style={{ color: currentTheme.strokeFill }}>설정</h2>
+                                                </div>
+                                            </div>
+                                            <button onClick={toggleSidebar} className="w-6 h-6 rounded-lg hover:bg-opacity-20 flex items-center justify-center transition"
+                                                    style={{ backgroundColor: currentTheme.bodyFill }}>
+                                                <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24" style={{ color: currentTheme.strokeFill }}>
+                                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M6 18L18 6M6 6l12 12"/>
+                                                </svg>
+                                            </button>
+                                        </div>
+
+                                        <div className="mb-6">
+                                            <div className="text-center">
+                                                <div className="w-12 h-12 rounded-full mx-auto mb-2 flex items-center justify-center text-white font-bold text-sm" 
+                                                     style={{ backgroundColor: currentTheme.strokeFill }}>
+                                                    {currentUser.displayName?.charAt(0).toUpperCase()}
+                                                </div>
+                                                <p className="font-semibold mb-1 text-xs" style={{ color: currentTheme.strokeFill }}>{currentUser.displayName}</p>
+                                                <button onClick={handleSignOut} className="text-xs transition hover:opacity-70" style={{ color: currentTheme.strokeFill }}>로그아웃</button>
+                                            </div>
+                                        </div>
+                        
+                                        <div className="flex-1 space-y-3">
+                                            <div className="rounded-lg p-3 border-2" style={{ backgroundColor: currentTheme.bodyFill, borderColor: currentTheme.strokeFill }}>
+                                                <h3 className="font-bold text-xs mb-2" style={{ color: currentTheme.strokeFill }}>1. Notion 연동</h3>
+                                                <button onClick={handleNotionConnect} disabled={loadingStates.notion} 
+                                                        className="text-white font-bold py-2 px-3 rounded-lg w-full text-xs transition hover:opacity-80 border-2"
+                                                        style={{ 
+                                                            backgroundColor: notionToken ? '#16a34a' : currentTheme.strokeFill,
+                                                            borderColor: notionToken ? '#15803d' : currentTheme.strokeFill
+                                                        }}>
+                                                    {loadingStates.notion ? "..." : (notionToken ? "Notion 재연동" : "Notion 연동하기")}
+                                                </button>
+                                                {notionToken && <p className="mt-1 text-xs text-green-600 font-bold">✓ 연동 완료</p>}
+                                            </div>
+                                            
+                                            {notionToken && (
+                                                <div className="rounded-lg p-3 border-2" style={{ backgroundColor: currentTheme.bodyFill, borderColor: currentTheme.strokeFill }}>
+                                                    <h3 className="font-bold text-xs mb-2" style={{ color: currentTheme.strokeFill }}>2. 경험치 설정</h3>
+                                                    <div className="space-y-2">
+                                                        <div>
+                                                            <label className="block text-xs font-bold mb-1" style={{ color: currentTheme.strokeFill }}>데이터베이스</label>
+                                                            <select value={settings.selectedDbId} onChange={e => setSettings({...settings, selectedDbId: e.target.value})} disabled={loadingStates.db} 
+                                                                    className="w-full p-1.5 border-2 rounded-lg text-xs font-medium shadow-sm"
+                                                                    style={{ borderColor: currentTheme.strokeFill, color: currentTheme.strokeFill }}>
+                                                                <option value="">{loadingStates.db ? "로딩중..." : "-- DB 선택 --"}</option>
+                                                                {databases.map(db => <option key={db.id} value={db.id}>{db.title}</option>)}
+                                                            </select>
+                                                        </div>
+                                                        <div>
+                                                            <label className="block text-xs font-bold mb-1" style={{ color: currentTheme.strokeFill }}>경험치 속성</label>
+                                                            <select value={settings.propertyName} onChange={e => setSettings({...settings, propertyName: e.target.value})} disabled={loadingStates.prop || !settings.selectedDbId} 
+                                                                    className="w-full p-1.5 border-2 rounded-lg text-xs font-medium shadow-sm"
+                                                                    style={{ borderColor: currentTheme.strokeFill, color: currentTheme.strokeFill }}>
+                                                                <option value="">{loadingStates.prop ? "로딩중..." : "-- 속성 선택 --"}</option>
+                                                                {properties.map(prop => <option key={prop} value={prop}>{prop}</option>)}
+                                                            </select>
+                                                        </div>
+                                                    </div>
+                                                    <button onClick={handleSaveSettings} disabled={loadingStates.save || !settings.selectedDbId || !settings.propertyName} 
+                                                            className="bg-green-600 hover:bg-green-700 text-white font-bold py-2 px-3 rounded-lg mt-2 w-full text-xs border-2 border-green-700 shadow-lg transition">
+                                                        {loadingStates.save ? "..." : "설정 저장"}
+                                                    </button>
+                                                </div>
+                                            )}
+                                        </div>
+                                        <div className="mt-auto pt-4 border-t-2" style={{ borderColor: currentTheme.strokeFill }}>
+                                            <p className="text-xs text-center opacity-70" style={{ color: currentTheme.strokeFill }}>Made with ❤️</p>
+                                        </div>
+                                    </div>
+                                </div>
+                            </>
+                        )}
+
                         <CharacterCard 
                             level={level}
                             rebirthCount={tamagotchiState.rebirthCount}
@@ -476,53 +509,53 @@ function App() {
                             xpInCurrentLevel={xpInCurrentLevel}
                             xpForNextLevel={xpForNextLevel}
                             totalExp={tamagotchiState.totalExp}
+                            healthStatus={healthStatus}
+                            pageCount={tamagotchiState.pageCount}
                         />
 
-                        {healthStatus && (
-                            <div className="mt-4 bg-white rounded-xl p-4 border border-slate-200 shadow-md">
-                                <div className="flex items-center justify-between mb-2">
-                                    <div className="flex items-center">
-                                        <span className="text-lg mr-2">{healthStatus.icon}</span>
-                                        <span className="font-semibold text-slate-700 text-xs">건강 상태</span>
-                                    </div>
-                                    <span className={`text-xs font-bold ${healthStatus.color}`}>{healthStatus.status}</span>
+                        {/* 환생 횟수가 있을 때만 별도 표시 */}
+                        {tamagotchiState.rebirthCount > 0 && (
+                            <div className="mt-4 rounded-xl p-4 text-center border-4 shadow-2xl" 
+                                 style={{ 
+                                     backgroundColor: '#FFF8DC',
+                                     borderColor: '#B8860B'
+                                 }}>
+                                <div className="text-lg font-bold text-amber-800 flex items-center justify-center">
+                                    <span className="mr-2 text-yellow-500">👑</span><span>{tamagotchiState.rebirthCount}</span>
                                 </div>
-                                <p className="text-xs text-slate-600 mb-2">{healthStatus.message}</p>
-                                <div className="flex justify-between text-xs text-slate-500">
-                                    <span>마지막 업데이트:</span>
-                                    <span className="font-medium">{healthStatus.lastUpdateText}</span>
-                                </div>
+                                <div className="text-sm text-amber-700 font-medium">환생</div>
                             </div>
                         )}
                         
-                        <div className="mt-4 flex space-x-3">
-                            <div className="flex-1 bg-white rounded-xl p-3 text-center border border-slate-200 shadow-md">
-                                <div className="text-base font-bold text-slate-800">{tamagotchiState.pageCount}</div>
-                                <div className="text-xs text-slate-600">총 페이지</div>
-                            </div>
-                            {tamagotchiState.rebirthCount > 0 && (
-                                <div className="flex-1 bg-white rounded-xl p-3 text-center border border-slate-200 shadow-md">
-                                    <div className="text-base font-bold text-slate-800 flex items-center justify-center">
-                                        <span className="mr-1 text-yellow-500">👑</span><span>{tamagotchiState.rebirthCount}</span>
-                                    </div>
-                                    <div className="text-xs text-slate-600">환생</div>
-                                </div>
-                            )}
-                        </div>
-                        
                         {currentUser && !publicUserId && (
                         <>
-                            <div className="bg-white rounded-xl p-6 border border-slate-200 shadow-md mt-4">
-                                <h3 className="font-semibold text-slate-700 mb-3 text-sm">Notion 임베드</h3>
-                                <p className="text-xs text-slate-600 mb-3">링크를 복사해서 Notion 페이지에 붙여넣으세요!</p>
-                                <div className="flex rounded-lg overflow-hidden border border-slate-300">
-                                    <input type="text" readOnly value={`${window.location.origin}?uid=${currentUser.uid}`} className="flex-1 p-2 bg-slate-50 text-xs font-mono border-0 focus:outline-none" />
-                                    <button onClick={handleCopyEmbedLink} className="bg-slate-700 hover:bg-slate-800 text-white px-3 transition text-xs">{copyButtonText}</button>
+                            <div className="rounded-xl p-6 border-4 shadow-2xl mt-4" 
+                                 style={{ 
+                                     backgroundColor: currentTheme.highlightFill,
+                                     borderColor: currentTheme.strokeFill 
+                                 }}>
+                                <h3 className="font-bold mb-3 text-sm" style={{ color: currentTheme.strokeFill }}>Notion 임베드</h3>
+                                <p className="text-xs mb-3 opacity-80" style={{ color: currentTheme.strokeFill }}>링크를 복사해서 Notion 페이지에 붙여넣으세요!</p>
+                                <div className="flex rounded-lg overflow-hidden border-2" style={{ borderColor: currentTheme.strokeFill }}>
+                                    <input type="text" readOnly value={`${window.location.origin}?uid=${currentUser.uid}`} 
+                                           className="flex-1 p-2 text-xs font-mono border-0 focus:outline-none" 
+                                           style={{ backgroundColor: currentTheme.bodyFill, color: currentTheme.strokeFill }} />
+                                    <button onClick={handleCopyEmbedLink} 
+                                            className="px-4 py-2 transition text-xs font-bold text-white hover:opacity-80"
+                                            style={{ backgroundColor: currentTheme.strokeFill }}>
+                                        {copyButtonText}
+                                    </button>
                                 </div>
                             </div>
 
                             <div className="mt-4 flex space-x-3">
-                                <button onClick={handleRefresh} disabled={loadingStates.refresh} className="flex-1 bg-white hover:bg-slate-50 border border-slate-200 rounded-xl p-3 transition text-xs font-medium text-slate-700 flex items-center justify-center shadow-md">
+                                <button onClick={handleRefresh} disabled={loadingStates.refresh} 
+                                        className="flex-1 rounded-xl p-3 transition text-xs font-bold flex items-center justify-center shadow-2xl border-4 hover:opacity-80"
+                                        style={{ 
+                                            backgroundColor: currentTheme.highlightFill,
+                                            borderColor: currentTheme.strokeFill,
+                                            color: currentTheme.strokeFill 
+                                        }}>
                                     {loadingStates.refresh ? (
                                         <svg className="animate-spin h-4 w-4" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24"><circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle><path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path></svg>
                                     ) : (
@@ -530,7 +563,13 @@ function App() {
                                         새로고침</>
                                     )}
                                 </button>
-                                <button onClick={handleShare} className="flex-1 bg-white hover:bg-slate-50 border border-slate-200 rounded-xl p-3 transition text-xs font-medium text-slate-700 flex items-center justify-center shadow-md">
+                                <button onClick={handleShare} 
+                                        className="flex-1 rounded-xl p-3 transition text-xs font-bold flex items-center justify-center shadow-2xl border-4 hover:opacity-80"
+                                        style={{ 
+                                            backgroundColor: currentTheme.highlightFill,
+                                            borderColor: currentTheme.strokeFill,
+                                            color: currentTheme.strokeFill 
+                                        }}>
                                     <svg className="w-4 h-4 mr-1.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M8.684 13.42C8.886 12.938 9 12.482 9 12c0-.482-.114-.938-.316-1.342m0 2.684a3 3 0 110-2.684m0 2.684l6.632 3.316m-6.632-6l6.632-3.316m0 0a3 3 0 105.367-2.684 3 3 0 00-5.367 2.684zm0 9.316a3 3 0 105.367 2.684 3 3 0 00-5.367-2.684z"/></svg>
                                     공유
                                 </button>
