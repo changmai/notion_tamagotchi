@@ -104,7 +104,9 @@ interface HealthStatus {
 
 // --- 메인 앱 컴포넌트 ---
 function App() {
+    // --- 상태 관리 (State) ---
     const [currentUser, setCurrentUser] = useState<User | null>(null);
+    const [publicUserId, setPublicUserId] = useState<string | null>(null);
     const [isSidebarOpen, setSidebarOpen] = useState(false);
     const [isLoading, setIsLoading] = useState(true);
     const [tamagotchiState, setTamagotchiState] = useState<TamagotchiState>({ totalExp: 0, rebirthCount: 0, pageCount: 0 });
@@ -166,13 +168,15 @@ function App() {
     };
 
     const handleShare = async () => {
-        const shareData = { title: 'Notion 다마고치', text: 'Notion으로 생산성을 게임처럼 즐겨보세요!', url: window.location.href };
+        if (!currentUser) return;
+        const publicUrl = `${window.location.origin}?uid=${currentUser.uid}`;
+        const shareData = { title: '나의 Notion 펫 구경하기!', text: 'Notion으로 키우는 제 펫을 구경해보세요!', url: publicUrl };
         try {
             if (navigator.share) {
                 await navigator.share(shareData);
             } else {
-                await navigator.clipboard.writeText(shareData.url);
-                alert("링크가 클립보드에 복사되었습니다!");
+                await navigator.clipboard.writeText(publicUrl);
+                alert("공유 링크가 클립보드에 복사되었습니다!");
             }
         } catch (error) {
             console.error("Share failed:", error);
@@ -191,11 +195,17 @@ function App() {
     
     // --- 데이터 로딩 및 동기화 (Effects) ---
     useEffect(() => {
-        const unsubscribe = onAuthStateChanged(auth, (user: User | null) => {
-            setCurrentUser(user);
-            setIsLoading(false);
-        });
-        return unsubscribe;
+        const urlParams = new URLSearchParams(window.location.search);
+        const uidFromUrl = urlParams.get('uid');
+        if (uidFromUrl) {
+            setPublicUserId(uidFromUrl);
+        } else {
+            const unsubscribe = onAuthStateChanged(auth, (user: User | null) => {
+                setCurrentUser(user);
+                setIsLoading(false);
+            });
+            return unsubscribe;
+        }
     }, []);
 
     useEffect(() => {
@@ -223,23 +233,32 @@ function App() {
     }, [currentUser]);
 
     useEffect(() => {
-        if (!currentUser) return;
-
-        const tokenRef = doc(db, "users", currentUser.uid, "notion", "token");
-        getDoc(tokenRef).then((snap: DocumentSnapshot) => snap.exists() && setNotionToken(snap.data()));
-
-        const settingsRef = doc(db, "users", currentUser.uid, "settings", "config");
-        getDoc(settingsRef).then((snap: DocumentSnapshot) => snap.exists() && setSettings(snap.data() as NotionSettings));
+        const userIdToFetch = publicUserId || currentUser?.uid;
+        if (!userIdToFetch) {
+            if (!publicUserId) setIsLoading(false);
+            return;
+        }
         
-        const stateRef = doc(db, "users", currentUser.uid, "tamagotchi", "state");
+        setIsLoading(true);
+
+        if (!publicUserId && currentUser) {
+            const tokenRef = doc(db, "users", currentUser.uid, "notion", "token");
+            getDoc(tokenRef).then((snap: DocumentSnapshot) => snap.exists() && setNotionToken(snap.data()));
+
+            const settingsRef = doc(db, "users", currentUser.uid, "settings", "config");
+            getDoc(settingsRef).then((snap: DocumentSnapshot) => snap.exists() && setSettings(snap.data() as NotionSettings));
+        }
+        
+        const stateRef = doc(db, "users", userIdToFetch, "tamagotchi", "state");
         const unsubscribe = onSnapshot(stateRef, (docSnap: DocumentSnapshot) => {
             if (docSnap.exists()) {
                 setTamagotchiState(docSnap.data() as TamagotchiState);
             }
+            setIsLoading(false);
         });
 
         return () => unsubscribe();
-    }, [currentUser]);
+    }, [currentUser, publicUserId]);
 
     useEffect(() => {
         if (notionToken) {
@@ -299,12 +318,30 @@ function App() {
 
     // --- 렌더링을 위한 데이터 계산 ---
     const { level, progress, xpInCurrentLevel, xpForNextLevel } = calculateLevelData(tamagotchiState.totalExp);
-
+    
     if (isLoading) {
-        return <div className="bg-slate-900 min-h-screen flex items-center justify-center text-white">로딩 중...</div>;
+        return <div className="bg-slate-900 min-h-screen flex items-center justify-center text-white" style={{fontFamily: "'Jua', sans-serif"}}>캐릭터를 불러오는 중...</div>;
+    }
+    
+    if (publicUserId) {
+        return (
+            <div className="bg-slate-100 min-h-screen" style={{fontFamily: "'Jua', sans-serif"}}>
+                <div className="min-h-screen flex items-center justify-center p-4">
+                    <div className="w-full max-w-sm mx-auto">
+                        <CharacterCard 
+                            level={level}
+                            rebirthCount={tamagotchiState.rebirthCount}
+                            progress={progress}
+                            xpInCurrentLevel={xpInCurrentLevel}
+                            xpForNextLevel={xpForNextLevel}
+                            totalExp={tamagotchiState.totalExp}
+                        />
+                    </div>
+                </div>
+            </div>
+        )
     }
 
-    // --- 최종 JSX 렌더링 ---
     return (
         <div className="bg-slate-100 min-h-screen" style={{fontFamily: "'Jua', sans-serif"}}>
              <style>{`
@@ -325,7 +362,6 @@ function App() {
                 .btn-success:hover { background-color: #15803d; transform: translateY(-2px); }
             `}</style>
             
-            {/* --- 사이드바 --- */}
             <button id="hamburgerButton" onClick={toggleSidebar} className={`fixed top-6 left-6 z-50 w-12 h-12 bg-white/80 backdrop-blur-sm rounded-lg shadow-md border border-slate-200 flex flex-col items-center justify-center space-y-1.5 transition-all duration-300 hover:bg-white hover:scale-105 ${isSidebarOpen ? 'hamburger-open' : ''}`}>
                 <div className="hamburger-line w-6 h-0.5 bg-slate-800 rounded-full"></div>
                 <div className="hamburger-line w-6 h-0.5 bg-slate-800 rounded-full"></div>
@@ -334,7 +370,6 @@ function App() {
             <div id="sidebarOverlay" onClick={toggleSidebar} className={`fixed inset-0 bg-black/50 backdrop-blur-sm z-40 transition-opacity duration-300 ${isSidebarOpen ? 'opacity-100' : 'opacity-0 pointer-events-none'}`}></div>
             <div id="sidebar" className={`sidebar fixed left-0 top-0 h-full w-80 bg-slate-50 border-r border-slate-200 z-50 shadow-2xl ${isSidebarOpen ? 'open' : ''}`}>
                 <div className="p-6 h-full flex flex-col custom-scrollbar overflow-y-auto">
-                    {/* Sidebar Header and Content... */}
                     <div className="flex items-center justify-between mb-8">
                         <div className="flex items-center space-x-3">
                             <div className="text-3xl">🥚</div>
@@ -405,9 +440,8 @@ function App() {
                 </div>
             </div>
 
-            {/* --- 메인 컨텐츠 --- */}
             <div className="min-h-screen flex items-center justify-center p-4">
-                {!currentUser ? (
+                {!currentUser && !publicUserId ? (
                     <div className="text-center">
                         <div className="text-8xl mb-6 animate-bounce-slow">🥚</div>
                         <h1 className="text-4xl font-bold mb-4 text-slate-800">Notion Pet</h1>
@@ -459,30 +493,35 @@ function App() {
                                 </div>
                             )}
                         </div>
+                        
+                        {currentUser && !publicUserId && (
+                        <>
+                            <div className="bg-white rounded-xl p-6 border border-slate-200 shadow-md mt-4">
+                                <h3 className="font-semibold text-slate-700 mb-3 text-sm">Notion 임베드</h3>
+                                <p className="text-xs text-slate-600 mb-3">링크를 복사해서 Notion 페이지에 붙여넣으세요!</p>
+                                <div className="flex rounded-lg overflow-hidden border border-slate-300">
+                                    <input type="text" readOnly value={`${window.location.origin}?uid=${currentUser.uid}`} className="flex-1 p-2 bg-slate-50 text-xs font-mono border-0 focus:outline-none" />
+                                    <button onClick={handleCopyEmbedLink} className="bg-slate-700 hover:bg-slate-800 text-white px-3 transition text-xs">{copyButtonText}</button>
+                                </div>
+                            </div>
 
-                        <div className="bg-white rounded-xl p-6 border border-slate-200 shadow-md mt-4">
-                             <h3 className="font-semibold text-slate-700 mb-3 text-sm">Notion 임베드</h3>
-                             <p className="text-xs text-slate-600 mb-3">링크를 복사해서 Notion 페이지에 붙여넣으세요!</p>
-                             <div className="flex rounded-lg overflow-hidden border border-slate-300">
-                                 <input type="text" readOnly value={`https://asia-northeast3-notion-tamagotchi.cloudfunctions.net/serveTamagotchiImage?uid=${currentUser.uid}`} className="flex-1 p-2 bg-slate-50 text-xs font-mono border-0 focus:outline-none" />
-                                 <button onClick={handleCopyEmbedLink} className="bg-slate-700 hover:bg-slate-800 text-white px-3 transition text-xs">{copyButtonText}</button>
-                             </div>
-                        </div>
+                            <div className="mt-4 flex space-x-3">
+                                <button onClick={handleRefresh} disabled={loadingStates.refresh} className="flex-1 bg-white hover:bg-slate-50 border border-slate-200 rounded-xl p-3 transition text-xs font-medium text-slate-700 flex items-center justify-center shadow-md">
+                                    {loadingStates.refresh ? (
+                                        <svg className="animate-spin h-4 w-4" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24"><circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle><path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path></svg>
+                                    ) : (
+                                        <><svg className="w-4 h-4 mr-1.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"/></svg>
+                                        새로고침</>
+                                    )}
+                                </button>
+                                <button onClick={handleShare} className="flex-1 bg-white hover:bg-slate-50 border border-slate-200 rounded-xl p-3 transition text-xs font-medium text-slate-700 flex items-center justify-center shadow-md">
+                                    <svg className="w-4 h-4 mr-1.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M8.684 13.42C8.886 12.938 9 12.482 9 12c0-.482-.114-.938-.316-1.342m0 2.684a3 3 0 110-2.684m0 2.684l6.632 3.316m-6.632-6l6.632-3.316m0 0a3 3 0 105.367-2.684 3 3 0 00-5.367 2.684zm0 9.316a3 3 0 105.367 2.684 3 3 0 00-5.367-2.684z"/></svg>
+                                    공유
+                                </button>
+                            </div>
+                        </>
+                        )}
 
-                        <div className="mt-4 flex space-x-3">
-                            <button onClick={handleRefresh} disabled={loadingStates.refresh} className="flex-1 bg-white hover:bg-slate-50 border border-slate-200 rounded-xl p-3 transition text-xs font-medium text-slate-700 flex items-center justify-center shadow-md">
-                                {loadingStates.refresh ? (
-                                    <svg className="animate-spin h-4 w-4" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24"><circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle><path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path></svg>
-                                ) : (
-                                    <><svg className="w-4 h-4 mr-1.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"/></svg>
-                                    새로고침</>
-                                )}
-                            </button>
-                            <button onClick={handleShare} className="flex-1 bg-white hover:bg-slate-50 border border-slate-200 rounded-xl p-3 transition text-xs font-medium text-slate-700 flex items-center justify-center shadow-md">
-                                <svg className="w-4 h-4 mr-1.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M8.684 13.42C8.886 12.938 9 12.482 9 12c0-.482-.114-.938-.316-1.342m0 2.684a3 3 0 110-2.684m0 2.684l6.632 3.316m-6.632-6l6.632-3.316m0 0a3 3 0 105.367-2.684 3 3 0 00-5.367 2.684zm0 9.316a3 3 0 105.367 2.684 3 3 0 00-5.367-2.684z"/></svg>
-                                공유
-                            </button>
-                        </div>
                     </div>
                 )}
             </div>

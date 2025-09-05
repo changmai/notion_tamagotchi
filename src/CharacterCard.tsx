@@ -537,7 +537,8 @@ const CharacterSVG: React.FC<{ svgRef: React.Ref<SVGSVGElement>, level: number }
                                 <ellipse cx="65" cy="125.6" rx="16" ry="18" style={{ fill: styles.strokeFill }} />
                                 <ellipse cx="73" cy="117" rx="7" ry="5" style={{ fill: 'white' }} />
                             </g>
-                            <path d="M45, 156 q 20 15 40 0" style={{ fill: 'none', strokeWidth: 8, strokeLinecap: 'round', strokeMiterlimit: 10, stroke: styles.bodyFill }}></path>
+                            {/* ✨ 볼터치(Blusher)로 변경 */}
+                            <ellipse cx="35" cy="158" rx="18" ry="12" fill="rgb(255, 127, 127)" opacity="0.6" />
                         </g>
                         <g data-name="right-eye-group">
                             <ellipse cx="185" cy="125.8" rx="26" ry="30.1" style={{ fill: 'white', stroke: styles.strokeFill, strokeWidth: 5 }} />
@@ -545,7 +546,8 @@ const CharacterSVG: React.FC<{ svgRef: React.Ref<SVGSVGElement>, level: number }
                                 <ellipse cx="185" cy="125.8" rx="16" ry="18" style={{ fill: styles.strokeFill }} />
                                 <ellipse cx="193" cy="117.8" rx="7" ry="5" style={{ fill: 'white' }} />
                             </g>
-                            <path d="M165, 156 q 20 15 40 0" style={{ fill: 'none', strokeWidth: 8, strokeLinecap: 'round', strokeMiterlimit: 10, stroke: styles.bodyFill }}></path>
+                            {/* ✨ 볼터치(Blusher)로 변경 */}
+                            <ellipse cx="215" cy="158" rx="18" ry="12" fill="rgb(255, 127, 127)" opacity="0.6" />
                         </g>
                     </g>
                 </g>
@@ -713,3 +715,4 @@ const CharacterCard: React.FC<CharacterCardProps> = ({ level, rebirthCount, prog
 };
 
 export default CharacterCard;
+
