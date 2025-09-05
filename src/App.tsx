@@ -40,26 +40,23 @@ const db = getFirestore(app);
 const functions = getFunctions(app, "asia-northeast3");
 const provider = new GoogleAuthProvider();
 
-// --- 레벨 계산 로직 (From Reference) ---
+// --- 레벨 계산 로직 (Updated with Rebirth Logic) ---
 const MAX_LEVEL = 10;
 const XP_FOR_REBIRTH_AT_MAX_LEVEL = 500;
 const CUMULATIVE_XP_FOR_LEVEL = [0, 100, 250, 450, 700, 1000, 1350, 1750, 2200, 2700];
 
-// --- 레벨별 스타일 정의 (CharacterCard와 동일) ---
-const levelStyles: { [key: number]: any } = {
-    1: { bodyFill: 'rgb(251, 113, 133)', highlightFill: 'rgb(253, 164, 175)', strokeFill: 'rgb(136, 19, 55)', tongueFill: 'rgb(220, 20, 60)', showCrown: false, showGem: false, showWingsAndMagic: false, showAura: false },
-    2: { bodyFill: '#87CEEB', highlightFill: '#B0E0E6', strokeFill: '#4682B4', tongueFill: '#FF6347', showCrown: false, showGem: false, showWingsAndMagic: false, showAura: false },
-    3: { bodyFill: '#87CEEB', highlightFill: '#B0E0E6', strokeFill: '#4682B4', tongueFill: '#FF6347', showCrown: true, crownFill: '#FFD700', showGem: false, showWingsAndMagic: false, showAura: false },
-    4: { bodyFill: '#90EE90', highlightFill: '#98FB98', strokeFill: '#2E8B57', tongueFill: '#FF7F50', showCrown: true, crownFill: '#FFD700', showGem: false, showWingsAndMagic: false, showAura: false },
-    5: { bodyFill: '#90EE90', highlightFill: '#98FB98', strokeFill: '#2E8B57', tongueFill: '#FF7F50', showCrown: true, crownFill: '#FFD700', showGem: true, gemFill: '#FF4500', showWingsAndMagic: false, showAura: false },
-    6: { bodyFill: '#FFD700', highlightFill: '#FFFACD', strokeFill: '#B8860B', tongueFill: '#E9967A', showCrown: true, crownFill: '#C0C0C0', showGem: true, gemFill: '#FF4500', showWingsAndMagic: true, showAura: false },
-    7: { bodyFill: '#FFD700', highlightFill: '#FFFACD', strokeFill: '#B8860B', tongueFill: '#E9967A', showCrown: true, crownFill: '#C0C0C0', showGem: true, gemFill: '#00FFFF', showWingsAndMagic: true, showAura: false },
-    8: { bodyFill: '#E6E6FA', highlightFill: '#FFFFFF', strokeFill: '#9370DB', tongueFill: '#F08080', showCrown: true, crownFill: '#FFD700', showGem: true, gemFill: '#00FFFF', showWingsAndMagic: true, showAura: false },
-    9: { bodyFill: '#E6E6FA', highlightFill: '#FFFFFF', strokeFill: '#9370DB', tongueFill: '#F08080', showCrown: true, crownFill: '#FFD700', showGem: true, gemFill: '#DA70D6', showWingsAndMagic: true, showAura: true, auraFill: 'gold' },
-    10: { bodyFill: '#D3D3D3', highlightFill: '#F5F5F5', strokeFill: '#696969', tongueFill: '#B22222', showCrown: true, crownFill: '#FFD700', showGem: true, gemFill: '#DA70D6', showWingsAndMagic: true, showAura: true, auraFill: 'url(#rainbowAura)' },
-};
+// 한 사이클(rebirth)당 총 필요 경험치
+const XP_PER_CYCLE = CUMULATIVE_XP_FOR_LEVEL[MAX_LEVEL - 1] + XP_FOR_REBIRTH_AT_MAX_LEVEL; // 2700 + 500 = 3200
 
-const calculateLevelData = (currentCycleXp: number) => {
+// **수정된 레벨 및 rebirth 계산 함수**
+const calculateLevelAndRebirthData = (totalExp: number) => {
+    // rebirth 횟수 계산
+    const rebirthCount = Math.floor(totalExp / XP_PER_CYCLE);
+    
+    // 현재 사이클의 경험치 계산
+    const currentCycleXp = totalExp % XP_PER_CYCLE;
+    
+    // 현재 사이클에서의 레벨 계산
     let level = 1;
     for (let i = CUMULATIVE_XP_FOR_LEVEL.length - 1; i >= 0; i--) {
         if (currentCycleXp >= CUMULATIVE_XP_FOR_LEVEL[i]) {
@@ -76,7 +73,9 @@ const calculateLevelData = (currentCycleXp: number) => {
             level: MAX_LEVEL, 
             progress: Math.min(100, progress), 
             xpInCurrentLevel: xpIntoMaxLevel, 
-            xpForNextLevel: XP_FOR_REBIRTH_AT_MAX_LEVEL 
+            xpForNextLevel: XP_FOR_REBIRTH_AT_MAX_LEVEL,
+            rebirthCount,
+            currentCycleXp
         };
     }
 
@@ -85,12 +84,29 @@ const calculateLevelData = (currentCycleXp: number) => {
     const xpNeededForLevel = xpForNextLevelTotal - xpAtLevelStart;
     const xpInCurrentLevel = currentCycleXp - xpAtLevelStart;
     const progress = (xpInCurrentLevel / xpNeededForLevel) * 100;
+    
     return { 
         level, 
         progress, 
         xpInCurrentLevel, 
-        xpForNextLevel: xpNeededForLevel 
+        xpForNextLevel: xpNeededForLevel,
+        rebirthCount,
+        currentCycleXp
     };
+};
+
+// --- 레벨별 스타일 정의 (CharacterCard와 동일) ---
+const levelStyles: { [key: number]: any } = {
+    1: { bodyFill: 'rgb(251, 113, 133)', highlightFill: 'rgb(253, 164, 175)', strokeFill: 'rgb(136, 19, 55)', tongueFill: 'rgb(220, 20, 60)', showCrown: false, showGem: false, showWingsAndMagic: false, showAura: false },
+    2: { bodyFill: '#87CEEB', highlightFill: '#B0E0E6', strokeFill: '#4682B4', tongueFill: '#FF6347', showCrown: false, showGem: false, showWingsAndMagic: false, showAura: false },
+    3: { bodyFill: '#87CEEB', highlightFill: '#B0E0E6', strokeFill: '#4682B4', tongueFill: '#FF6347', showCrown: true, crownFill: '#FFD700', showGem: false, showWingsAndMagic: false, showAura: false },
+    4: { bodyFill: '#90EE90', highlightFill: '#98FB98', strokeFill: '#2E8B57', tongueFill: '#FF7F50', showCrown: true, crownFill: '#FFD700', showGem: false, showWingsAndMagic: false, showAura: false },
+    5: { bodyFill: '#90EE90', highlightFill: '#98FB98', strokeFill: '#2E8B57', tongueFill: '#FF7F50', showCrown: true, crownFill: '#FFD700', showGem: true, gemFill: '#FF4500', showWingsAndMagic: false, showAura: false },
+    6: { bodyFill: '#FFD700', highlightFill: '#FFFACD', strokeFill: '#B8860B', tongueFill: '#E9967A', showCrown: true, crownFill: '#C0C0C0', showGem: true, gemFill: '#FF4500', showWingsAndMagic: true, showAura: false },
+    7: { bodyFill: '#FFD700', highlightFill: '#FFFACD', strokeFill: '#B8860B', tongueFill: '#E9967A', showCrown: true, crownFill: '#C0C0C0', showGem: true, gemFill: '#00FFFF', showWingsAndMagic: true, showAura: false },
+    8: { bodyFill: '#E6E6FA', highlightFill: '#FFFFFF', strokeFill: '#9370DB', tongueFill: '#F08080', showCrown: true, crownFill: '#FFD700', showGem: true, gemFill: '#00FFFF', showWingsAndMagic: true, showAura: false },
+    9: { bodyFill: '#E6E6FA', highlightFill: '#FFFFFF', strokeFill: '#9370DB', tongueFill: '#F08080', showCrown: true, crownFill: '#FFD700', showGem: true, gemFill: '#DA70D6', showWingsAndMagic: true, showAura: true, auraFill: 'gold' },
+    10: { bodyFill: '#D3D3D3', highlightFill: '#F5F5F5', strokeFill: '#696969', tongueFill: '#B22222', showCrown: true, crownFill: '#FFD700', showGem: true, gemFill: '#DA70D6', showWingsAndMagic: true, showAura: true, auraFill: 'url(#rainbowAura)' },
 };
 
 // --- 타입 정의 ---
@@ -357,9 +373,12 @@ function App() {
         }
     }, [tamagotchiState.lastUpdated]);
 
-    // --- 렌더링을 위한 데이터 계산 ---
-    const { level, progress, xpInCurrentLevel, xpForNextLevel } = calculateLevelData(tamagotchiState.totalExp);
-    const currentTheme = levelStyles[level] || levelStyles[1];
+    // --- **수정된 렌더링을 위한 데이터 계산** ---
+    const levelData = calculateLevelAndRebirthData(tamagotchiState.totalExp);
+    const currentTheme = levelStyles[levelData.level] || levelStyles[1];
+    
+    // **디버깅 정보 추가**
+    console.log(`총 경험치: ${tamagotchiState.totalExp}, 계산된 rebirth: ${levelData.rebirthCount}, DB rebirth: ${tamagotchiState.rebirthCount}`);
     
     if (isLoading) {
         return <div className="bg-slate-900 min-h-screen flex items-center justify-center text-white" style={{fontFamily: "'Jua', sans-serif"}}>캐릭터를 불러오는 중...</div>;
@@ -371,11 +390,11 @@ function App() {
                 <div className="min-h-screen flex items-center justify-center p-4">
                     <div className="w-full max-w-sm mx-auto">
                         <CharacterCard 
-                            level={level}
-                            rebirthCount={tamagotchiState.rebirthCount}
-                            progress={progress}
-                            xpInCurrentLevel={xpInCurrentLevel}
-                            xpForNextLevel={xpForNextLevel}
+                            level={levelData.level}
+                            rebirthCount={levelData.rebirthCount} // **수정: 계산된 rebirth 사용**
+                            progress={levelData.progress}
+                            xpInCurrentLevel={levelData.xpInCurrentLevel}
+                            xpForNextLevel={levelData.xpForNextLevel}
                             totalExp={tamagotchiState.totalExp}
                             healthStatus={healthStatus}
                             pageCount={tamagotchiState.pageCount}
@@ -549,29 +568,17 @@ function App() {
                         )}
 
                         <CharacterCard 
-                            level={level}
-                            rebirthCount={tamagotchiState.rebirthCount}
-                            progress={progress}
-                            xpInCurrentLevel={xpInCurrentLevel}
-                            xpForNextLevel={xpForNextLevel}
+                            level={levelData.level}
+                            rebirthCount={levelData.rebirthCount} // **수정: 계산된 rebirth 사용**
+                            progress={levelData.progress}
+                            xpInCurrentLevel={levelData.xpInCurrentLevel}
+                            xpForNextLevel={levelData.xpForNextLevel}
                             totalExp={tamagotchiState.totalExp}
                             healthStatus={healthStatus}
                             pageCount={tamagotchiState.pageCount}
                         />
 
-                        {/* 환상 횟수가 있을 때만 별도 표시 */}
-                        {tamagotchiState.rebirthCount > 0 && (
-                            <div className="mt-4 rounded-xl p-4 text-center border-4 shadow-2xl" 
-                                 style={{ 
-                                     backgroundColor: '#FFF8DC',
-                                     borderColor: '#B8860B'
-                                 }}>
-                                <div className="text-lg font-bold text-amber-800 flex items-center justify-center">
-                                    <span className="mr-2 text-yellow-500">👑</span><span>{tamagotchiState.rebirthCount}</span>
-                                </div>
-                                <div className="text-sm text-amber-700 font-medium">환상</div>
-                            </div>
-                        )}
+
                         
                         {currentUser && !publicUserId && (
                         <>
