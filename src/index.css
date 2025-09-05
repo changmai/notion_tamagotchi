@@ -2,10 +2,15 @@
 @tailwind components;
 @tailwind utilities;
 
-/* 전역 배경 투명 처리 */
+/* ✅ Notion 임베드용: 루트 배경 완전 투명 강제 */
+:root {
+  color-scheme: light dark; /* 시스템/노션 다크모드 친화 */
+}
+
 html, body, #root {
   background: transparent !important;
 }
-:root {
-  color-scheme: light dark;
+
+html, body {
+  height: 100%;
 }
