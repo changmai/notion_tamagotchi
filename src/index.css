@@ -2,35 +2,32 @@
 @tailwind components;
 @tailwind utilities;
 
-/* 1) 완전 투명 기본값: 호스트(노션) 배경이 비치도록 */
+/* ✅ 기본: 호스트(노션) 배경이 비치도록 완전 투명 */
 html, body, #root {
   background: transparent !important;
 }
-
 html, body {
   height: 100%;
   margin: 0;
   padding: 0;
 }
 
-/* SVG/Canvas 등도 배경 투명 보장 */
+/* SVG/Canvas 등도 투명 보장 (필요 시) */
 canvas, svg {
   background: transparent !important;
 }
 
-/* 시스템·호스트 다크/라이트 힌트 */
+/* 시스템 다크/라이트 힌트 */
 :root { color-scheme: light dark; }
 
-/* 2) Fallback: 노션 안에서 iframe 자체가 검정으로 고정되는 경우
-   - index.html의 스크립트가 html에 .notion-fallback-bg를 붙여줌
-   - 이때만 노션의 배경색과 동일하게 페이지 배경을 맞춰 '검은 띠' 현상을 숨깁니다 */
+/* ✅ Fallback: 노션이 iframe 자체를 #121212로 칠하는 경우
+   - index.html 스크립트가 html에 .notion-fallback-bg 클래스를 항상 부여
+   - 다크/라이트 각각 노션의 실제 배경과 동일한 색으로 '강제 매칭' */
 html.notion-fallback-bg body {
-  /* 라이트 기본 */
-  background: #ffffff !important;
+  background: #ffffff !important; /* 라이트 */
 }
-
 @media (prefers-color-scheme: dark) {
   html.notion-fallback-bg body {
-    background: #2f3437 !important; /* Notion 다크 배경 */
+    background: #202020 !important; /* 노션 다크 배경 */
   }
 }

@@ -5,34 +5,36 @@
     <link rel="icon" type="image/svg+xml" href="/vite.svg" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
 
-    <!-- 시스템/호스트 다크-라이트 힌트 -->
+    <!-- 다크/라이트 모두 지원 힌트 -->
     <meta name="color-scheme" content="dark light" />
+    <!-- 일부 브라우저의 툴바/시스템색 영향 최소화 -->
+    <meta name="theme-color" content="#202020" media="(prefers-color-scheme: dark)">
+    <meta name="theme-color" content="#ffffff" media="(prefers-color-scheme: light)">
+
     <title>Vite + React + TS</title>
 
+    <style>
+      /* 렌더가 시작되기도 전에 인라인으로 투명 보장 (깜빡임 최소화) */
+      html, body, #root { background: transparent !important; }
+      html, body { height:100%; margin:0; padding:0; }
+    </style>
+
     <script>
-      /* 
-        Notion 임베드 감지 & Fallback 플래그
-        - 일부 환경에서 Notion이 iframe 배경을 검정으로 고정 -> 내부 투명처리만으로는 해결 불가
-        - 이때 화면 전체가 검정으로 보임. 이를 숨기기 위해 body 배경을 노션 색으로 '맞춤'
-        - 투명 우선 원칙: 기본은 투명, Notion에서만, 그리고 필요할 때만 이 클래스를 사용
+      /*
+        핵심: 일부 환경에서 Notion이 iframe 배경을 #121212로 고정.
+        - 내부에서 아무리 투명으로 해도 전면 검정/진회색처럼 보임.
+        - 이를 숨기기 위해 '노션의 실제 배경색'으로 강제 매칭(fallback)을 항상 켠다.
+        - 라이트: #ffffff / 다크: #202020
       */
       (function () {
         try {
-          var isInIframe = (function () {
-            try { return window.self !== window.top; } catch (e) { return true; }
-          })();
+          // 항상 켜서 시각적 불일치(= #121212) 제거
+          document.documentElement.classList.add('notion-fallback-bg');
 
-          var fromNotion = document.referrer && /notion\.so|notion\.site/i.test(document.referrer);
-
-          if (isInIframe && fromNotion) {
-            // 필요시 켤 수 있도록 기본적으로는 꺼둡니다.
-            // 투명으로 충분히 해결되면 이 라인은 주석으로 두세요.
-            // 만약 계속 '전체 검정' 현상이 보이면 아래 한 줄 주석을 해제해 켜주세요.
-            // document.documentElement.classList.add('notion-fallback-bg');
-          }
-        } catch (e) {
-          // 무시
-        }
+          // 혹시 라이트 테마 강제 필요 시 (원칙적으론 위 @media 가 처리)
+          // let dark = window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches;
+          // document.body.style.background = dark ? '#202020' : '#ffffff';
+        } catch (e) { /* no-op */ }
       })();
     </script>
   </head>
