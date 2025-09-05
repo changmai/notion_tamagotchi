@@ -2,15 +2,35 @@
 @tailwind components;
 @tailwind utilities;
 
-/* ✅ Notion 임베드용: 루트 배경 완전 투명 강제 */
-:root {
-  color-scheme: light dark; /* 시스템/노션 다크모드 친화 */
-}
-
+/* 1) 완전 투명 기본값: 호스트(노션) 배경이 비치도록 */
 html, body, #root {
   background: transparent !important;
 }
 
 html, body {
   height: 100%;
+  margin: 0;
+  padding: 0;
+}
+
+/* SVG/Canvas 등도 배경 투명 보장 */
+canvas, svg {
+  background: transparent !important;
+}
+
+/* 시스템·호스트 다크/라이트 힌트 */
+:root { color-scheme: light dark; }
+
+/* 2) Fallback: 노션 안에서 iframe 자체가 검정으로 고정되는 경우
+   - index.html의 스크립트가 html에 .notion-fallback-bg를 붙여줌
+   - 이때만 노션의 배경색과 동일하게 페이지 배경을 맞춰 '검은 띠' 현상을 숨깁니다 */
+html.notion-fallback-bg body {
+  /* 라이트 기본 */
+  background: #ffffff !important;
+}
+
+@media (prefers-color-scheme: dark) {
+  html.notion-fallback-bg body {
+    background: #2f3437 !important; /* Notion 다크 배경 */
+  }
 }
