@@ -386,7 +386,7 @@ function App() {
     
     if (publicUserId) {
         return (
-            <div className="bg-slate-100 min-h-screen" style={{fontFamily: "'Jua', sans-serif"}}>
+            <div className="min-h-screen" style={{fontFamily: "'Jua', sans-serif", backgroundColor: 'transparent'}}>
                 <div className="min-h-screen flex items-center justify-center p-4">
                     <div className="w-full max-w-sm mx-auto">
                         <CharacterCard 
