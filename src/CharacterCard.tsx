@@ -387,7 +387,7 @@ const CharacterSVG: React.FC<{ svgRef: React.Ref<SVGSVGElement>, level: number }
                 {wingStyle && (
                     <g data-name="wings" opacity={wingStyle.wingOpacity}>
                         {/* 왼쪽 날개 - 훨씬 더 바깥쪽으로 (25 → 10) */}
-                        <g transform={`translate(10, 125) scale(${wingStyle.wingSize})`}>
+                        <g transform={`translate(25, 125) scale(${wingStyle.wingSize})`}>
                             <path
                                 d="M0,0 Q-30,-20 -50,-10 Q-45,-5 -30,10 Q-20,25 -10,20 Q-5,10 0,0"
                                 fill={wingStyle.wingColor}
@@ -421,7 +421,7 @@ const CharacterSVG: React.FC<{ svgRef: React.Ref<SVGSVGElement>, level: number }
                         </g>
 
                         {/* 오른쪽 날개 - 훨씬 더 바깥쪽으로 (225 → 240) */}
-                        <g transform={`translate(240, 125) scale(${wingStyle.wingSize}) scale(-1, 1)`}>
+                        <g transform={`translate(225, 125) scale(${wingStyle.wingSize}) scale(-1, 1)`}>
                             <path
                                 d="M0,0 Q-30,-20 -50,-10 Q-45,-5 -30,10 Q-20,25 -10,20 Q-5,10 0,0"
                                 fill={wingStyle.wingColor}
