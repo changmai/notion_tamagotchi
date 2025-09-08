@@ -23,13 +23,13 @@ import { getFunctions, httpsCallable } from "firebase/functions";
 
 // --- ⚠️ 중요: 여기에 본인의 Firebase 설정 객체를 붙여넣으세요 ---
 const firebaseConfig = {
-    apiKey: "AIzaSyDZZMSJG4sh9Vw-T7pjMztC2swkOg1i8os",
-    authDomain: "notion-tamagotchi.firebaseapp.com",
-    projectId: "notion-tamagotchi",
-    storageBucket: "notion-tamagotchi.appspot.com",
-    messagingSenderId: "128399204318",
-    appId: "1:128399204318:web:197bf0d12b437b910f474f",
-    measurementId: "G-02V3VDK4Q6"
+    apiKey: "YOUR_API_KEY",
+    authDomain: "YOUR_AUTH_DOMAIN",
+    projectId: "YOUR_PROJECT_ID",
+    storageBucket: "YOUR_STORAGE_BUCKET",
+    messagingSenderId: "YOUR_MESSAGING_SENDER_ID",
+    appId: "YOUR_APP_ID",
+    measurementId: "YOUR_MEASUREMENT_ID"
 };
 
 
@@ -308,7 +308,7 @@ function App() {
             action,
             payload,
           });
-          alert('옵션이 업데이트되었습니다!');
+          // alert('옵션이 업데이트되었습니다!'); // 성공 시에는 굳이 alert를 띄우지 않고 새로고침만 합니다.
           await fetchProperties(settings.selectedDbId);
         } catch (err: any) {
           alert(`업데이트 실패: ${err.message}`);
