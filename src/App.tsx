@@ -3,22 +3,21 @@ import CharacterCard from './CharacterCard'; // 우리가 만든 캐릭터 카�
 
 // Firebase SDK import
 import { initializeApp } from "firebase/app";
-import { 
-    getAuth, 
-    GoogleAuthProvider, 
+import {
+    getAuth,
+    GoogleAuthProvider,
     signInWithPopup,
     signOut,
     onAuthStateChanged,
 } from "firebase/auth";
 import type { User } from "firebase/auth";
-import { 
-    getFirestore, 
-    doc, 
+import {
+    getFirestore,
+    doc,
     setDoc,
     getDoc,
     onSnapshot,
-    DocumentSnapshot,
-    Timestamp
+    Timestamp // DocumentSnapshot 임포트 제거
 } from "firebase/firestore";
 import { getFunctions, httpsCallable } from "firebase/functions";
 
@@ -62,10 +61,10 @@ const calculateLevelAndRebirthData = (totalExp: number) => {
         const xpAtMaxLevelStart = CUMULATIVE_XP_FOR_LEVEL[MAX_LEVEL - 1];
         const xpIntoMaxLevel = currentCycleXp - xpAtMaxLevelStart;
         const progress = (xpIntoMaxLevel / XP_FOR_REBIRTH_AT_MAX_LEVEL) * 100;
-        return { 
-            level: MAX_LEVEL, 
-            progress: Math.min(100, progress), 
-            xpInCurrentLevel: xpIntoMaxLevel, 
+        return {
+            level: MAX_LEVEL,
+            progress: Math.min(100, progress),
+            xpInCurrentLevel: xpIntoMaxLevel,
             xpForNextLevel: XP_FOR_REBIRTH_AT_MAX_LEVEL,
             rebirthCount,
             currentCycleXp
@@ -77,11 +76,11 @@ const calculateLevelAndRebirthData = (totalExp: number) => {
     const xpNeededForLevel = xpForNextLevelTotal - xpAtLevelStart;
     const xpInCurrentLevel = currentCycleXp - xpAtLevelStart;
     const progress = (xpInCurrentLevel / xpNeededForLevel) * 100;
-    
-    return { 
-        level, 
-        progress, 
-        xpInCurrentLevel, 
+
+    return {
+        level,
+        progress,
+        xpInCurrentLevel,
         xpForNextLevel: xpNeededForLevel,
         rebirthCount,
         currentCycleXp
@@ -168,7 +167,7 @@ function App() {
     const toggleSidebar = () => setSidebarOpen(!isSidebarOpen);
 
     const handleNotionConnect = () => {
-        const NOTION_CLIENT_ID = "259d872b-594c-80c7-9fd9-0037bc5be4d1"; // 본인의 Notion Client ID로 교체
+        const NOTION_CLIENT_ID = "YOUR_NOTION_CLIENT_ID"; // 본인의 Notion Client ID로 교체
         const NOTION_REDIRECT_URI = window.location.origin;
         const authUrl = `https://api.notion.com/v1/oauth/authorize?client_id=${NOTION_CLIENT_ID}&response_type=code&owner=user&redirect_uri=${encodeURIComponent(NOTION_REDIRECT_URI)}`;
         window.location.href = authUrl;
@@ -221,7 +220,7 @@ function App() {
         if (!currentUser) return;
         const publicUrl = `${window.location.origin}?uid=${currentUser.uid}`;
         const shareData = { title: '나의 Notion 펫 구경하기!', text: 'Notion으로 키우는 제 펫을 구경해보세요!', url: publicUrl };
-        
+
         if (navigator.share) {
             try {
                 await navigator.share(shareData);
@@ -248,7 +247,7 @@ function App() {
             alert("복사에 실패했습니다.");
         });
     };
-    
+
     const handleCreateProperty = useCallback(async (type: 'status' | 'select') => {
         if (!settings.selectedDbId) {
             alert("먼저 데이터베이스를 선택해주세요.");
@@ -303,6 +302,7 @@ function App() {
         const uidFromUrl = urlParams.get('uid');
         if (uidFromUrl) {
             setPublicUserId(uidFromUrl);
+            setIsLoading(false);
         } else {
             const unsubscribe = onAuthStateChanged(auth, (user: User | null) => {
                 setCurrentUser(user);
@@ -339,18 +339,17 @@ function App() {
     useEffect(() => {
         const userIdToFetch = publicUserId || currentUser?.uid;
         if (!userIdToFetch) {
-            if (!publicUserId) setIsLoading(false);
             return;
         }
-        
+
         setIsLoading(true);
 
         if (!publicUserId && currentUser) {
             getDoc(doc(db, "users", currentUser.uid, "notion", "token")).then((snap) => snap.exists() && setNotionToken(snap.data()));
             getDoc(doc(db, "users", currentUser.uid, "settings", "config")).then((snap) => snap.exists() && setSettings(snap.data() as NotionSettings));
         }
-        
-        const unsubscribe = onSnapshot(doc(db, "users", userIdToFetch, "tamagotchi", "state"), 
+
+        const unsubscribe = onSnapshot(doc(db, "users", userIdToFetch, "tamagotchi", "state"),
             (docSnap) => {
                 if (docSnap.exists()) {
                     setTamagotchiState(docSnap.data() as TamagotchiState);
@@ -370,22 +369,22 @@ function App() {
     }, [currentUser, publicUserId]);
 
     useEffect(() => {
-        if (notionToken) {
+        if (notionToken && currentUser) {
             const loadDatabases = async () => {
                 setLoadingStates(prev => ({ ...prev, db: true }));
                 try {
                     const getNotionDatabases = httpsCallable(functions, 'getNotionDatabases');
                     const result = await getNotionDatabases();
                     setDatabases((result.data as any).databases);
-                } catch (error) { console.error(error); } 
+                } catch (error) { console.error(error); }
                 finally { setLoadingStates(prev => ({ ...prev, db: false })); }
             };
             loadDatabases();
         }
-    }, [notionToken]);
-    
+    }, [notionToken, currentUser]);
+
     useEffect(() => {
-        if (settings.selectedDbId) {
+        if (settings.selectedDbId && currentUser) {
             const loadProperties = async () => {
                 setLoadingStates(prev => ({ ...prev, prop: true }));
                 setProperties(null);
@@ -393,19 +392,19 @@ function App() {
                     const getDatabaseProperties = httpsCallable(functions, 'getDatabaseProperties');
                     const result = await getDatabaseProperties({ databaseId: settings.selectedDbId });
                     setProperties((result.data as any).properties);
-                } catch (error) { console.error(error); } 
+                } catch (error) { console.error(error); }
                 finally { setLoadingStates(prev => ({ ...prev, prop: false })); }
             };
             loadProperties();
         }
-    }, [settings.selectedDbId]);
+    }, [settings.selectedDbId, currentUser]);
 
     useEffect(() => {
         if (tamagotchiState.lastUpdated) {
             const lastUpdateDate = tamagotchiState.lastUpdated.toDate();
             const now = new Date();
             const diffDays = Math.floor((now.getTime() - lastUpdateDate.getTime()) / (1000 * 60 * 60 * 24));
-            
+
             let newHealthStatus: HealthStatus;
 
             if (diffDays < 2) {
@@ -421,34 +420,36 @@ function App() {
 
     const levelData = calculateLevelAndRebirthData(tamagotchiState.totalExp);
     const currentTheme = levelStyles[levelData.level] || levelStyles[1];
-    
+
     const numberProperties = Object.values(properties || {}).filter(p => p.type === 'number' || p.type === 'formula');
     const statusProperties = Object.values(properties || {}).filter(p => p.type === 'status');
     const selectProperties = Object.values(properties || {}).filter(p => p.type === 'select');
-    
-    if (isLoading) {
+
+    if (isLoading && !currentUser && !publicUserId) {
         return (
-            <div className="min-h-screen flex items-center justify-center" style={{ fontFamily: "'Jua', sans-serif", backgroundColor: 'transparent', color: 'inherit' }}>
-                캐릭터를 불러오는 중...
+            <div className="min-h-screen flex items-center justify-center" style={{ fontFamily: "'Jua', sans-serif" }}>
+                앱을 불러오는 중...
             </div>
         );
     }
-    
+
     if (publicUserId) {
         return (
-            <div className="min-h-screen" style={{fontFamily: "'Jua', sans-serif", backgroundColor: 'transparent'}}>    
+            <div className="min-h-screen" style={{fontFamily: "'Jua', sans-serif", backgroundColor: 'transparent'}}>
                 <div className="min-h-screen flex items-center justify-center p-4">
                     <div className="w-full max-w-sm mx-auto">
-                        <CharacterCard 
-                            level={levelData.level}
-                            rebirthCount={levelData.rebirthCount}
-                            progress={levelData.progress}
-                            xpInCurrentLevel={levelData.xpInCurrentLevel}
-                            xpForNextLevel={levelData.xpForNextLevel}
-                            totalExp={tamagotchiState.totalExp}
-                            healthStatus={healthStatus}
-                            pageCount={tamagotchiState.pageCount}
-                        />
+                        {isLoading ? <p>캐릭터 정보를 불러오는 중...</p> :
+                            <CharacterCard
+                                level={levelData.level}
+                                rebirthCount={levelData.rebirthCount}
+                                progress={levelData.progress}
+                                xpInCurrentLevel={levelData.xpInCurrentLevel}
+                                xpForNextLevel={levelData.xpForNextLevel}
+                                totalExp={tamagotchiState.totalExp}
+                                healthStatus={healthStatus}
+                                pageCount={tamagotchiState.pageCount}
+                            />
+                        }
                     </div>
                 </div>
             </div>
@@ -475,9 +476,9 @@ function App() {
                         <div className="text-8xl mb-6 animate-bounce-slow">🥚</div>
                         <h1 className="text-4xl font-bold mb-4 text-slate-800">Notion Pet</h1>
                         <p className="text-slate-600 mb-8 max-w-md mx-auto leading-relaxed text-sm">생산성을 게임처럼, Notion 데이터베이스와 연동하여 펫을 키워보세요!</p>
-                        
+
                         <div className="space-y-4">
-                            <button 
+                            <button
                                 onClick={handleSignIn}
                                 disabled={isSigningIn}
                                 className="bg-white hover:bg-gray-50 text-gray-800 font-semibold py-3 px-6 border border-gray-300 rounded-xl shadow-lg transition-all duration-200 hover:scale-105 disabled:opacity-70 disabled:transform-none flex items-center justify-center mx-auto space-x-3"
@@ -502,7 +503,7 @@ function App() {
                                     </>
                                 )}
                             </button>
-                            
+
                             <div className="bg-white border border-slate-200 rounded-xl p-4 max-w-xs mx-auto">
                                 <p className="text-xs text-slate-600 mb-2">로그인 후에는:</p>
                                 <div className="flex items-center justify-center text-xs text-slate-600">
@@ -516,10 +517,10 @@ function App() {
                     </div>
                 ) : (
                     <div className="w-full max-w-sm mx-auto relative">
-                        <button 
-                            onClick={toggleSidebar} 
+                        <button
+                            onClick={toggleSidebar}
                             className={`absolute top-2 left-2 z-50 w-8 h-8 rounded-lg shadow-md flex flex-col items-center justify-center space-y-1 transition-all duration-300 hover:scale-105 ${isSidebarOpen ? 'hamburger-open' : ''}`}
-                            style={{ 
+                            style={{
                                 backgroundColor: currentTheme.highlightFill,
                                 border: `2px solid ${currentTheme.strokeFill}`
                             }}
@@ -531,7 +532,7 @@ function App() {
 
                         <div onClick={toggleSidebar} className={`fixed inset-0 bg-black/50 backdrop-blur-sm z-40 transition-opacity duration-300 ${isSidebarOpen ? 'opacity-100' : 'opacity-0 pointer-events-none'}`}></div>
                         <div className={`absolute left-0 top-0 h-full w-72 rounded-xl border-4 shadow-2xl z-50 transition-transform duration-300 ease-in-out ${isSidebarOpen ? 'translate-x-0' : '-translate-x-full'}`}
-                                style={{ 
+                                style={{
                                     backgroundColor: currentTheme.highlightFill,
                                     borderColor: currentTheme.strokeFill
                                 }}>
@@ -550,31 +551,31 @@ function App() {
                                         </svg>
                                     </button>
                                 </div>
-                                
+
                                 <div className="flex-1 space-y-3">
                                     <div className="sidebar-section rounded-lg p-3 border-2">
                                         <h3 className="font-bold text-xs mb-2" style={{ color: currentTheme.strokeFill }}>1. 데이터베이스 선택</h3>
                                         {!notionToken ? (
-                                            <button onClick={handleNotionConnect} disabled={loadingStates.notion} 
+                                            <button onClick={handleNotionConnect} disabled={loadingStates.notion}
                                                     className="text-white font-bold py-2 px-3 rounded-lg w-full text-xs transition hover:opacity-80 border-2"
                                                     style={{ backgroundColor: currentTheme.strokeFill, borderColor: currentTheme.strokeFill }}>
                                                 {loadingStates.notion ? "..." : "Notion 연동하기"}
                                             </button>
                                         ) : (
-                                            <select value={settings.selectedDbId} onChange={e => setSettings({...settings, selectedDbId: e.target.value})} disabled={loadingStates.db} 
-                                                className="w-full p-1.5 border-2 rounded-lg text-xs font-medium shadow-sm" style={{ borderColor: currentTheme.strokeFill, color: currentTheme.strokeFill }}>
+                                            <select value={settings.selectedDbId} onChange={e => setSettings({...settings, selectedDbId: e.target.value, xpPropertyName: '', statusPropertyName: '', difficultyPropertyName: ''})} disabled={loadingStates.db}
+                                                className="w-full p-1.5 border-2 rounded-lg text-xs font-medium shadow-sm" style={{ borderColor: currentTheme.strokeFill, color: currentTheme.strokeFill, backgroundColor: 'white' }}>
                                                 <option value="">{loadingStates.db ? "로딩중..." : "-- DB 선택 --"}</option>
                                                 {databases.map(db => <option key={db.id} value={db.id}>{db.title}</option>)}
                                             </select>
                                         )}
                                     </div>
-                                    
+
                                     {settings.selectedDbId && (
                                     <>
                                         <div className="sidebar-section rounded-lg p-3 border-2">
                                             <h3 className="font-bold text-xs mb-2" style={{ color: currentTheme.strokeFill }}>2. 경험치 속성 (필수)</h3>
                                             <select value={settings.xpPropertyName} onChange={e => setSettings({...settings, xpPropertyName: e.target.value})} disabled={loadingStates.prop}
-                                                    className="w-full p-1.5 border-2 rounded-lg text-xs font-medium shadow-sm" style={{ borderColor: currentTheme.strokeFill, color: currentTheme.strokeFill }}>
+                                                    className="w-full p-1.5 border-2 rounded-lg text-xs font-medium shadow-sm" style={{ borderColor: currentTheme.strokeFill, color: currentTheme.strokeFill, backgroundColor: 'white' }}>
                                                 <option value="">{loadingStates.prop ? "로딩중..." : "-- 숫자 속성 선택 --"}</option>
                                                 {numberProperties.map(p => <option key={p.id} value={p.name}>{p.name}</option>)}
                                             </select>
@@ -584,7 +585,7 @@ function App() {
                                             <h3 className="font-bold text-xs mb-2" style={{ color: currentTheme.strokeFill }}>3. 대표 상태 속성 (선택)</h3>
                                             {statusProperties.length > 0 ? (
                                                 <select value={settings.statusPropertyName} onChange={e => setSettings({...settings, statusPropertyName: e.target.value})}
-                                                        className="w-full p-1.5 border-2 rounded-lg text-xs font-medium shadow-sm" style={{ borderColor: currentTheme.strokeFill, color: currentTheme.strokeFill }}>
+                                                        className="w-full p-1.5 border-2 rounded-lg text-xs font-medium shadow-sm" style={{ borderColor: currentTheme.strokeFill, color: currentTheme.strokeFill, backgroundColor: 'white' }}>
                                                     <option value="">-- 상태 속성 선택 --</option>
                                                     {statusProperties.map(p => <option key={p.id} value={p.name}>{p.name}</option>)}
                                                 </select>
@@ -600,7 +601,7 @@ function App() {
                                             <h3 className="font-bold text-xs mb-2" style={{ color: currentTheme.strokeFill }}>4. 업무난이도 속성 (선택)</h3>
                                             {selectProperties.length > 0 ? (
                                                 <select value={settings.difficultyPropertyName} onChange={e => setSettings({...settings, difficultyPropertyName: e.target.value})}
-                                                        className="w-full p-1.5 border-2 rounded-lg text-xs font-medium shadow-sm" style={{ borderColor: currentTheme.strokeFill, color: currentTheme.strokeFill }}>
+                                                        className="w-full p-1.5 border-2 rounded-lg text-xs font-medium shadow-sm" style={{ borderColor: currentTheme.strokeFill, color: currentTheme.strokeFill, backgroundColor: 'white' }}>
                                                     <option value="">-- 단일 선택 속성 --</option>
                                                     {selectProperties.map(p => <option key={p.id} value={p.name}>{p.name}</option>)}
                                                 </select>
@@ -612,26 +613,28 @@ function App() {
                                             )}
                                             {settings.difficultyPropertyName && properties && properties[settings.difficultyPropertyName]?.select?.options && (
                                                 <div className="mt-2 pt-2 border-t-2" style={{borderColor: currentTheme.strokeFill}}>
-                                                    {properties[settings.difficultyPropertyName].select.options.map(opt => (
+                                                    {properties[settings.difficultyPropertyName]?.select?.options?.map(opt => (
                                                         <div key={opt.id} className="flex items-center justify-between text-xs my-1">
-                                                            <span className="truncate pr-2">{opt.name}</span>
+                                                            <span className="truncate pr-2" style={{ color: currentTheme.strokeFill }}>{opt.name}</span>
                                                             <div className="flex-shrink-0">
-                                                                <button className="mr-1" onClick={() => {
+                                                                <button className="mr-1 text-base" onClick={() => {
                                                                     const newName = prompt("새로운 옵션 이름:", opt.name);
                                                                     if (newName && newName.trim()) handleManageSelectOption('UPDATE_OPTION', { optionId: opt.id, newName });
                                                                 }}>✏️</button>
-                                                                <button onClick={() => {
+                                                                <button className="text-base" onClick={() => {
                                                                     if (window.confirm(`'${opt.name}' 옵션을 삭제하시겠습니까?`)) handleManageSelectOption('DELETE_OPTION', { optionId: opt.id });
                                                                 }}>❌</button>
                                                             </div>
                                                         </div>
                                                     ))}
                                                     <div className="flex mt-2">
-                                                        <input type="text" id="new-option-input" placeholder="새 옵션 추가" className="flex-1 text-xs p-1 rounded-l-md border-2" style={{borderColor: currentTheme.strokeFill}}/>
+                                                        <input type="text" id="new-option-input" placeholder="새 옵션 추가" className="flex-1 text-xs p-1 rounded-l-md border-2" style={{borderColor: currentTheme.strokeFill, backgroundColor: 'white'}}/>
                                                         <button onClick={() => {
                                                             const input = document.getElementById('new-option-input') as HTMLInputElement;
-                                                            if (input.value && input.value.trim()) handleManageSelectOption('ADD_OPTION', { name: input.value.trim() });
-                                                            input.value = '';
+                                                            if (input.value && input.value.trim()) {
+                                                                handleManageSelectOption('ADD_OPTION', { name: input.value.trim() });
+                                                                input.value = '';
+                                                            }
                                                         }} className="text-white font-bold px-2 rounded-r-md text-xs" style={{backgroundColor: currentTheme.strokeFill}}>+</button>
                                                     </div>
                                                 </div>
@@ -653,8 +656,8 @@ function App() {
                                 </div>
                             </div>
                         </div>
-                        
-                        <CharacterCard 
+
+                        <CharacterCard
                             level={levelData.level}
                             rebirthCount={levelData.rebirthCount}
                             progress={levelData.progress}
@@ -664,21 +667,21 @@ function App() {
                             healthStatus={healthStatus}
                             pageCount={tamagotchiState.pageCount}
                         />
-                        
+
                         {currentUser && (
                         <>
-                            <div className="rounded-xl p-6 border-4 shadow-2xl mt-4" 
-                                 style={{ 
+                            <div className="rounded-xl p-6 border-4 shadow-2xl mt-4"
+                                 style={{
                                      backgroundColor: currentTheme.highlightFill,
-                                     borderColor: currentTheme.strokeFill 
+                                     borderColor: currentTheme.strokeFill
                                  }}>
                                 <h3 className="font-bold mb-3 text-sm" style={{ color: currentTheme.strokeFill }}>Notion 임베드</h3>
                                 <p className="text-xs mb-3 opacity-80" style={{ color: currentTheme.strokeFill }}>링크를 복사해서 Notion 페이지에 붙여넣으세요!</p>
                                 <div className="flex rounded-lg overflow-hidden border-2" style={{ borderColor: currentTheme.strokeFill }}>
-                                    <input type="text" readOnly value={`${window.location.origin}?uid=${currentUser.uid}`} 
-                                           className="flex-1 p-2 text-xs font-mono border-0 focus:outline-none" 
+                                    <input type="text" readOnly value={`${window.location.origin}?uid=${currentUser.uid}`}
+                                           className="flex-1 p-2 text-xs font-mono border-0 focus:outline-none"
                                            style={{ backgroundColor: currentTheme.bodyFill, color: currentTheme.strokeFill }} />
-                                    <button onClick={handleCopyEmbedLink} 
+                                    <button onClick={handleCopyEmbedLink}
                                             className="px-4 py-2 transition text-xs font-bold text-white hover:opacity-80"
                                             style={{ backgroundColor: currentTheme.strokeFill }}>
                                         {copyButtonText}
@@ -687,12 +690,12 @@ function App() {
                             </div>
 
                             <div className="mt-4 flex space-x-3">
-                                <button onClick={handleRefresh} disabled={loadingStates.refresh} 
+                                <button onClick={handleRefresh} disabled={loadingStates.refresh}
                                         className="flex-1 rounded-xl p-3 transition text-xs font-bold flex items-center justify-center shadow-2xl border-4 hover:opacity-80"
-                                        style={{ 
+                                        style={{
                                             backgroundColor: currentTheme.highlightFill,
                                             borderColor: currentTheme.strokeFill,
-                                            color: currentTheme.strokeFill 
+                                            color: currentTheme.strokeFill
                                         }}>
                                     {loadingStates.refresh ? (
                                         <svg className="animate-spin h-4 w-4" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24"><circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle><path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path></svg>
@@ -701,14 +704,14 @@ function App() {
                                         새로고침</>
                                     )}
                                 </button>
-                                <button onClick={handleShare} 
+                                <button onClick={handleShare}
                                         className="flex-1 rounded-xl p-3 transition text-xs font-bold flex items-center justify-center shadow-2xl border-4 hover:opacity-80"
-                                        style={{ 
+                                        style={{
                                             backgroundColor: currentTheme.highlightFill,
                                             borderColor: currentTheme.strokeFill,
-                                            color: currentTheme.strokeFill 
+                                            color: currentTheme.strokeFill
                                         }}>
-                                    <svg className="w-4 h-4 mr-1.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M8.684 13.42C8.886 12.938 9 12.482 9 12c0-.482-.114-.938-.316-1.342m0 2.684a3 3 0 110-2.684m0 2.684l6.632 3.316m-6.632-6l6.632-3.316m0 0a3 3 0 105.367-2.684 3 3 0 00-5.367 2.684zm0 9.316a3 3 0 105.367 2.684 3 3 0 00-5.367-2.684z"/></svg>
+                                    <svg className="w-4 h-4 mr-1.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M8.684 13.42C8.886 12.938 9 12.482 9 12c0-.482-.114-.938-.316-1.342m0 2.684a3 3 0 110-2.684m0 2.684l6.632 3.316m-6.632-6l6.632-3.316m0 0a3 3 0 105.367-2.684 3 3 0 00-5.367-2.684zm0 9.316a3 3 0 105.367 2.684 3 3 0 00-5.367-2.684z"/></svg>
                                     공유
                                 </button>
                             </div>
@@ -722,3 +725,4 @@ function App() {
 }
 
 export default App;
+
