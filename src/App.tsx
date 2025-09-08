@@ -22,7 +22,7 @@ import {
 } from "firebase/firestore";
 import { getFunctions, httpsCallable } from "firebase/functions";
 
-// --- ⚠️ It is important to paste your own Firebase configuration object here ---
+// --- ⚠️ 중요: 여기에 본인의 Firebase 설정 객체를 붙여넣으세요 ---
 const firebaseConfig = {
     apiKey: "AIzaSyDZZMSJG4sh9Vw-T7pjMztC2swkOg1i8os",
     authDomain: "notion-tamagotchi.firebaseapp.com",
@@ -34,14 +34,14 @@ const firebaseConfig = {
 };
 
 
-// --- Firebase service initialization ---
+// --- Firebase 서비스 초기화 ---
 const app = initializeApp(firebaseConfig);
 const auth = getAuth(app);
 const db = getFirestore(app);
 const functions = getFunctions(app, "asia-northeast3");
 const provider = new GoogleAuthProvider();
 
-// --- Level calculation logic ---
+// --- 레벨 계산 로직 ---
 const MAX_LEVEL = 10;
 const XP_FOR_REBIRTH_AT_MAX_LEVEL = 500;
 const CUMULATIVE_XP_FOR_LEVEL = [0, 100, 250, 450, 700, 1000, 1350, 1750, 2200, 2700];
@@ -88,7 +88,7 @@ const calculateLevelAndRebirthData = (totalExp: number) => {
     };
 };
 
-// --- Style definition by level (for sidebar theme color) ---
+// --- 레벨별 스타일 정의 (사이드바 테마색상용) ---
 const levelStyles: { [key: number]: any } = {
     1: { bodyFill: 'rgb(251, 113, 133)', highlightFill: 'rgb(253, 164, 175)', strokeFill: 'rgb(136, 19, 55)' },
     2: { bodyFill: '#87CEEB', highlightFill: '#B0E0E6', strokeFill: '#4682B4' },
@@ -102,7 +102,7 @@ const levelStyles: { [key: number]: any } = {
     10: { bodyFill: '#D3D3D3', highlightFill: '#F5F5F5', strokeFill: '#696969' },
 };
 
-// --- Type definitions ---
+// --- 타입 정의 ---
 interface TamagotchiState {
     totalExp: number;
     rebirthCount: number;
@@ -135,9 +135,9 @@ interface Database {
     title: string;
 }
 
-// --- Main App Component ---
+// --- 메인 앱 컴포넌트 ---
 function App() {
-    // --- State Management ---
+    // --- 상태 관리 (State) ---
     const [currentUser, setCurrentUser] = useState<User | null>(null);
     const [publicUserId, setPublicUserId] = useState<string | null>(null);
     const [isSidebarOpen, setSidebarOpen] = useState(false);
@@ -153,13 +153,13 @@ function App() {
     const [loadingStates, setLoadingStates] = useState({ notion: false, db: false, prop: false, save: false, refresh: false });
     const [copyButtonText, setCopyButtonText] = useState("복사");
 
-    // --- Handler Functions ---
+    // --- 핸들러 함수들 ---
     const handleSignIn = async () => {
         setIsSigningIn(true);
         try {
             await signInWithPopup(auth, provider);
         } catch (error) {
-            console.error("Login failed:", error);
+            console.error("로그인 실패:", error);
         } finally {
             setIsSigningIn(false);
         }
@@ -231,7 +231,7 @@ function App() {
                 await navigator.clipboard.writeText(publicUrl);
                 alert("공유 링크가 클립보드에 복사되었습니다!");
             } catch (copyError) {
-                console.error("Clipboard copy failed:", copyError);
+                console.error("클립보드 복사 실패:", copyError);
                 alert("공유에 실패했습니다.");
             }
         }
@@ -255,7 +255,7 @@ function App() {
             const result = await getDatabaseProperties({ databaseId: dbId });
             setProperties((result.data as any).properties);
         } catch (error) {
-            console.error("Failed to load property list:", error);
+            console.error("속성 목록 로드 실패:", error);
             alert("속성 목록을 불러오는 데 실패했습니다.");
         } finally {
             setLoadingStates(prev => ({ ...prev, prop: false }));
@@ -271,7 +271,7 @@ function App() {
             const propertyConfig = { "업무난이도": { select: { options: [{ name: "상" }, { name: "중" }, { name: "하" }, { name: "즉시처리" }] } } };
             await createProp({ databaseId: settings.selectedDbId, propertyConfig });
             await fetchProperties(settings.selectedDbId);
-        } catch (err: any) { alert(`Creation failed: ${err.message}`); }
+        } catch (err: any) { alert(`생성 실패: ${err.message}`); }
         finally { setLoadingStates(prev => ({...prev, prop: false})); }
     }, [settings.selectedDbId, functions, fetchProperties]);
 
@@ -287,7 +287,7 @@ function App() {
             payload,
           });
           await fetchProperties(settings.selectedDbId);
-        } catch (err: any) { alert(`Update failed: ${err.message}`); }
+        } catch (err: any) { alert(`업데이트 실패: ${err.message}`); }
         finally { setLoadingStates(prev => ({...prev, prop: false})); }
     }, [settings.selectedDbId, settings.difficultyPropertyName, functions, fetchProperties]);
 
@@ -299,7 +299,7 @@ function App() {
         setDifficultyOrder(newOrder);
     };
 
-    // --- Data loading and synchronization (Effects) ---
+    // --- 데이터 로딩 및 동기화 (Effects) ---
     useEffect(() => {
         const urlParams = new URLSearchParams(window.location.search);
         const uidFromUrl = urlParams.get('uid');
@@ -337,7 +337,7 @@ function App() {
         if (notionCode && currentUser) {
             handleNotionCallback(notionCode, currentUser);
         }
-    }, [currentUser, functions, db]);
+    }, [currentUser]);
 
     useEffect(() => {
         const userIdToFetch = publicUserId || currentUser?.uid;
@@ -358,7 +358,7 @@ function App() {
             setIsLoading(false);
         });
         return () => unsubscribe();
-    }, [currentUser, publicUserId, db]);
+    }, [currentUser, publicUserId]);
 
     useEffect(() => {
         if (notionToken && currentUser) {
@@ -373,7 +373,7 @@ function App() {
             };
             loadDatabases();
         }
-    }, [notionToken, currentUser, functions]);
+    }, [notionToken, currentUser]);
 
     useEffect(() => {
         if (settings.selectedDbId && currentUser) {
@@ -387,7 +387,6 @@ function App() {
             if (difficultyProp?.type === 'select' && difficultyProp.select?.options) {
                 const savedOrder = settings.difficultyOptionsOrder || [];
                 const currentOptionNames = difficultyProp.select.options.map(opt => opt.name);
-                // Sync order: keep saved order for existing options, append new options at the end
                 const newSyncedOrder = savedOrder.filter(name => currentOptionNames.includes(name));
                 const newOptions = currentOptionNames.filter(name => !savedOrder.includes(name));
                 setDifficultyOrder([...newSyncedOrder, ...newOptions]);
@@ -413,7 +412,7 @@ function App() {
         }
     }, [tamagotchiState.lastUpdated]);
 
-    // --- Data for rendering ---
+    // --- 렌더링을 위한 데이터 ---
     const levelData = calculateLevelAndRebirthData(tamagotchiState.totalExp);
     const currentTheme = levelStyles[levelData.level] || levelStyles[1];
     const statusProperties = Object.values(properties || {}).filter(p => p.type === 'status');
@@ -428,83 +427,7 @@ function App() {
         const completeOptionIds = new Set(completeGroup.option_ids);
         return statusProp.status.options.filter(opt => completeOptionIds.has(opt.id));
     }, [properties, settings.statusPropertyName]);
-    
-    // START: Dynamic UI component for difficulty settings
-    const DifficultySettingsComponent = () => {
-        if (!settings.difficultyPropertyName || !properties) {
-            return null;
-        }
 
-        const difficultyProp = properties[settings.difficultyPropertyName];
-        if (difficultyProp?.type !== 'select') {
-            return <p className="text-xs text-red-500 mt-2 text-center">선택한 속성은 'Select' 타입이어야 합니다.</p>;
-        }
-
-        const options = difficultyProp.select?.options || [];
-        const numOptions = options.length;
-
-        if (loadingStates.prop) {
-            return <div className="text-center text-xs p-4" style={{color: currentTheme.strokeFill}}>옵션 로딩 중...</div>;
-        }
-
-        // Case: 0 options
-        if (numOptions === 0) {
-            return (
-                <div className="mt-2 pt-2 border-t-2" style={{ borderColor: currentTheme.strokeFill }}>
-                    <p className="text-center text-xs mb-2" style={{color: currentTheme.strokeFill}}>선택값이 없습니다.</p>
-                    <button onClick={handleCreateDifficultyProperty} disabled={loadingStates.prop}
-                            className="w-full text-white font-bold py-2 px-3 rounded-lg text-xs transition" style={{ backgroundColor: currentTheme.strokeFill }}>
-                        {loadingStates.prop ? "생성 중..." : "'업무난이도' 속성 생성"}
-                    </button>
-                </div>
-            );
-        }
-
-        // Cases: 1 or more options
-        return (
-            <div className="mt-2 pt-2 border-t-2" style={{ borderColor: currentTheme.strokeFill }}>
-                <h4 className="font-bold text-xs mb-2 text-center" style={{ color: currentTheme.strokeFill }}>난이도별 경험치 설정</h4>
-                
-                {difficultyOrder.map((optionName, index) => (
-                    <div key={optionName + index} className={`flex items-center justify-between text-xs my-1 p-1 rounded-md ${index >= 4 ? 'opacity-60' : ''}`} style={{backgroundColor: 'rgba(255,255,255,0.3)'}}>
-                        <span className="font-bold w-16" style={{ color: currentTheme.strokeFill }}>{index < 4 ? `${EXP_LEVELS[index]} EXP` : '기타 (0 EXP)'}</span>
-                        <span className="truncate mx-2 flex-1 text-center" style={{ color: currentTheme.strokeFill }}>{optionName}</span>
-                        <div className="flex-shrink-0 flex items-center">
-                            <button className="text-lg leading-none disabled:opacity-20" disabled={index === 0} onClick={() => handleOrderChange(index, 'up')}>🔺</button>
-                            <button className="text-lg leading-none disabled:opacity-20" disabled={index === difficultyOrder.length - 1} onClick={() => handleOrderChange(index, 'down')}>🔻</button>
-                            <button className="text-base ml-2 hover:scale-110 transition-transform" onClick={() => {
-                                if (window.confirm(`'${optionName}' 옵션을 Notion에서 삭제하시겠습니까?`)) {
-                                    const optionToDelete = options.find(o => o.name === optionName);
-                                    if(optionToDelete) handleManageSelectOption('DELETE', { optionId: optionToDelete.id });
-                                }
-                            }}>❌</button>
-                        </div>
-                    </div>
-                ))}
-
-                {numOptions > 0 && numOptions < 4 && (
-                    <>
-                        {Array.from({ length: 4 - numOptions }).map((_, index) => (
-                            <div key={`empty-${index}`} className="flex items-center justify-center text-xs my-1 p-1 rounded-md opacity-60" style={{backgroundColor: 'rgba(255,255,255,0.3)'}}>
-                                <span className="italic" style={{ color: currentTheme.strokeFill }}>(비어 있음)</span>
-                            </div>
-                        ))}
-                        <div className="flex mt-2">
-                             <input type="text" id="new-option-input" placeholder="새 옵션 추가" className="flex-1 text-xs p-1 rounded-l-md border-2" style={{borderColor: currentTheme.strokeFill, backgroundColor: 'white'}}/>
-                             <button onClick={() => {
-                                const input = document.getElementById('new-option-input') as HTMLInputElement;
-                                if (input.value && input.value.trim()) {
-                                    handleManageSelectOption('ADD', { name: input.value.trim() });
-                                    input.value = '';
-                                }
-                             }} className="text-white font-bold px-3 rounded-r-md text-xs" style={{backgroundColor: currentTheme.strokeFill}} disabled={numOptions >= 4}>추가</button>
-                        </div>
-                    </>
-                )}
-            </div>
-        );
-    };
-    // END: Dynamic UI component
 
     if (isLoading && !currentUser && !publicUserId) {
         return (
@@ -675,8 +598,48 @@ function App() {
                                                 {selectProperties.map(p => <option key={p.id} value={p.name}>{p.name}</option>)}
                                             </select>
                                             
-                                            <DifficultySettingsComponent />
+                                            {settings.difficultyPropertyName && (
+                                                <div className="mt-2 pt-2 border-t-2" style={{borderColor: currentTheme.strokeFill}}>
+                                                    <h4 className="font-bold text-xs mb-2 text-center" style={{ color: currentTheme.strokeFill }}>난이도별 경험치 설정</h4>
+                                                    
+                                                    {difficultyOrder.length === 0 && (
+                                                        <button onClick={handleCreateDifficultyProperty} disabled={loadingStates.prop}
+                                                                className="w-full text-white font-bold py-2 px-3 rounded-lg text-xs transition" style={{backgroundColor: currentTheme.strokeFill}}>
+                                                            {loadingStates.prop ? "생성 중..." : "기본 옵션 생성"}
+                                                        </button>
+                                                    )}
 
+                                                    {difficultyOrder.map((optionName, index) => (
+                                                        <div key={optionName + index} className={`flex items-center justify-between text-xs my-1 p-1 rounded-md ${index >= 4 ? 'opacity-50' : ''}`} style={{backgroundColor: currentTheme.highlightFill}}>
+                                                            <span className="font-bold w-16" style={{ color: currentTheme.strokeFill }}>{index < 4 ? `${EXP_LEVELS[index]} EXP` : '기타 (0 EXP)'}</span>
+                                                            <span className="truncate mx-2" style={{ color: currentTheme.strokeFill }}>{optionName}</span>
+                                                            <div className="flex-shrink-0 flex items-center">
+                                                                <button className="text-lg leading-none disabled:opacity-20" disabled={index === 0} onClick={() => handleOrderChange(index, 'up')}>🔺</button>
+                                                                <button className="text-lg leading-none disabled:opacity-20" disabled={index === difficultyOrder.length - 1} onClick={() => handleOrderChange(index, 'down')}>🔻</button>
+                                                                <button className="text-base ml-2" onClick={() => {
+                                                                    if (window.confirm(`'${optionName}' 옵션을 Notion에서 삭제하시겠습니까?`)) {
+                                                                        const optionToDelete = properties?.[settings.difficultyPropertyName!]?.select?.options.find(o => o.name === optionName);
+                                                                        if(optionToDelete) handleManageSelectOption('DELETE', { optionId: optionToDelete.id });
+                                                                    }
+                                                                }}>❌</button>
+                                                            </div>
+                                                        </div>
+                                                    ))}
+                                                    
+                                                    {difficultyOrder.length < 4 && difficultyOrder.length > 0 && (
+                                                        <div className="flex mt-2">
+                                                             <input type="text" id="new-option-input" placeholder="새 옵션 추가" className="flex-1 text-xs p-1 rounded-l-md border-2" style={{borderColor: currentTheme.strokeFill, backgroundColor: 'white'}}/>
+                                                             <button onClick={() => {
+                                                                const input = document.getElementById('new-option-input') as HTMLInputElement;
+                                                                if (input.value && input.value.trim()) {
+                                                                    handleManageSelectOption('ADD', { name: input.value.trim() });
+                                                                    input.value = '';
+                                                                }
+                                                             }} className="text-white font-bold px-2 rounded-r-md text-xs" style={{backgroundColor: currentTheme.strokeFill}}>+</button>
+                                                        </div>
+                                                    )}
+                                                </div>
+                                            )}
                                         </div>
 
                                         <div className="sidebar-section rounded-lg p-3 border-2">
@@ -776,3 +739,4 @@ function App() {
 }
 
 export default App;
+
