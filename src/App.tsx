@@ -17,7 +17,7 @@ import {
     setDoc,
     getDoc,
     onSnapshot,
-    Timestamp // DocumentSnapshot 임포트 제거
+    Timestamp
 } from "firebase/firestore";
 import { getFunctions, httpsCallable } from "firebase/functions";
 
@@ -248,11 +248,36 @@ function App() {
         });
     };
 
+    const fetchProperties = useCallback(async (dbId: string) => {
+        setLoadingStates(prev => ({ ...prev, prop: true }));
+        setProperties(null);
+        try {
+            const getDatabaseProperties = httpsCallable(functions, 'getDatabaseProperties');
+            const result = await getDatabaseProperties({ databaseId: dbId });
+            setProperties((result.data as any).properties);
+        } catch (error) {
+            console.error("속성 목록 로드 실패:", error);
+            alert("속성 목록을 불러오는 데 실패했습니다.");
+        } finally {
+            setLoadingStates(prev => ({ ...prev, prop: false }));
+        }
+    }, [functions]);
+
+
     const handleCreateProperty = useCallback(async (type: 'status' | 'select') => {
         if (!settings.selectedDbId) {
             alert("먼저 데이터베이스를 선택해주세요.");
             return;
         }
+
+        const confirmMessage = type === 'status'
+            ? "'상태' 속성을 새로 생성하시겠습니까?"
+            : "'업무난이도' 속성을 새로 생성하시겠습니까?";
+
+        if (!window.confirm(confirmMessage)) {
+            return;
+        }
+
         setLoadingStates(prev => ({...prev, prop: true}));
         try {
             const createProp = httpsCallable(functions, 'createProperty');
@@ -263,16 +288,14 @@ function App() {
                 propertyConfig = { "업무난이도": { select: { options: [{ name: "상" }, { name: "중" }, { name: "하" }, { name: "즉시처리" }] } } };
             }
             await createProp({ databaseId: settings.selectedDbId, propertyConfig });
-            alert('속성이 생성되었습니다! 목록을 새로고침합니다.');
-            const getProps = httpsCallable(functions, 'getDatabaseProperties');
-            const result = await getProps({ databaseId: settings.selectedDbId });
-            setProperties((result.data as any).properties);
+            alert('속성이 생성되었습니다!');
+            await fetchProperties(settings.selectedDbId);
         } catch (err: any) {
             alert(`생성 실패: ${err.message}`);
         } finally {
             setLoadingStates(prev => ({...prev, prop: false}));
         }
-    }, [settings.selectedDbId, functions]);
+    }, [settings.selectedDbId, functions, fetchProperties]);
 
     const handleManageSelectOption = useCallback(async (action: string, payload: any) => {
         if (!settings.selectedDbId || !settings.difficultyPropertyName) return;
@@ -286,15 +309,13 @@ function App() {
             payload,
           });
           alert('옵션이 업데이트되었습니다!');
-          const getProps = httpsCallable(functions, 'getDatabaseProperties');
-          const result = await getProps({ databaseId: settings.selectedDbId });
-          setProperties((result.data as any).properties);
+          await fetchProperties(settings.selectedDbId);
         } catch (err: any) {
           alert(`업데이트 실패: ${err.message}`);
         } finally {
             setLoadingStates(prev => ({...prev, prop: false}));
         }
-    }, [settings.selectedDbId, settings.difficultyPropertyName, functions]);
+    }, [settings.selectedDbId, settings.difficultyPropertyName, functions, fetchProperties]);
 
     // --- 데이터 로딩 및 동기화 (Effects) ---
     useEffect(() => {
@@ -385,19 +406,9 @@ function App() {
 
     useEffect(() => {
         if (settings.selectedDbId && currentUser) {
-            const loadProperties = async () => {
-                setLoadingStates(prev => ({ ...prev, prop: true }));
-                setProperties(null);
-                try {
-                    const getDatabaseProperties = httpsCallable(functions, 'getDatabaseProperties');
-                    const result = await getDatabaseProperties({ databaseId: settings.selectedDbId });
-                    setProperties((result.data as any).properties);
-                } catch (error) { console.error(error); }
-                finally { setLoadingStates(prev => ({ ...prev, prop: false })); }
-            };
-            loadProperties();
+            fetchProperties(settings.selectedDbId);
         }
-    }, [settings.selectedDbId, currentUser]);
+    }, [settings.selectedDbId, currentUser, fetchProperties]);
 
     useEffect(() => {
         if (tamagotchiState.lastUpdated) {
