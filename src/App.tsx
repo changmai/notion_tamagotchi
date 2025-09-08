@@ -249,6 +249,7 @@ function App() {
     };
 
     const fetchProperties = useCallback(async (dbId: string) => {
+        if (!dbId) return;
         setLoadingStates(prev => ({ ...prev, prop: true }));
         setProperties(null);
         try {
@@ -283,7 +284,18 @@ function App() {
             const createProp = httpsCallable(functions, 'createProperty');
             let propertyConfig = {};
             if (type === 'status') {
-                propertyConfig = { "상태": { status: {} } };
+                // This logic is no longer used by the UI but is kept for reference
+                propertyConfig = {
+                    "상태": {
+                        status: {
+                            options: [
+                                { name: "시작 전", color: "default" },
+                                { name: "진행 중", color: "blue" },
+                                { name: "완료", color: "green" }
+                            ]
+                        }
+                    }
+                };
             } else {
                 propertyConfig = { "업무난이도": { select: { options: [{ name: "상" }, { name: "중" }, { name: "하" }, { name: "즉시처리" }] } } };
             }
@@ -308,7 +320,6 @@ function App() {
             action,
             payload,
           });
-          // alert('옵션이 업데이트되었습니다!');
           await fetchProperties(settings.selectedDbId);
         } catch (err: any) {
           alert(`업데이트 실패: ${err.message}`);
@@ -606,10 +617,22 @@ function App() {
                                                     {statusProperties.map(p => <option key={p.id} value={p.name}>{p.name}</option>)}
                                                 </select>
                                             ) : (
-                                                <button onClick={() => handleCreateProperty('status')} disabled={loadingStates.prop}
-                                                        className="w-full text-white font-bold py-2 px-3 rounded-lg text-xs transition" style={{backgroundColor: currentTheme.strokeFill}}>
-                                                    {loadingStates.prop ? "생성 중..." : "'상태' 속성 생성"}
-                                                </button>
+                                                <div className="text-center">
+                                                    <p className="text-xs mb-2 opacity-80" style={{ color: currentTheme.strokeFill }}>
+                                                        '상태' 속성을 노션에서 직접 추가하세요.
+                                                    </p>
+                                                    <button onClick={() => {
+                                                        const formatId = (id: string) => `${id.substr(0, 8)}-${id.substr(8, 4)}-${id.substr(12, 4)}-${id.substr(16, 4)}-${id.substr(20)}`;
+                                                        window.open(`https://www.notion.so/${formatId(settings.selectedDbId)}`, '_blank');
+                                                    }}
+                                                        className="w-full text-white font-bold py-2 px-3 rounded-lg text-xs transition mb-2 hover:opacity-80" style={{backgroundColor: currentTheme.strokeFill}}>
+                                                        '상태' 속성 추가하러 가기
+                                                    </button>
+                                                    <button onClick={() => fetchProperties(settings.selectedDbId)} disabled={loadingStates.prop}
+                                                        className="w-full text-white font-bold py-2 px-3 rounded-lg text-xs transition hover:opacity-80" style={{backgroundColor: currentTheme.strokeFill, opacity: loadingStates.prop ? 0.7 : 1}}>
+                                                        {loadingStates.prop ? "업데이트 중..." : "속성 목록 업데이트"}
+                                                    </button>
+                                                </div>
                                             )}
                                         </div>
 
@@ -637,9 +660,6 @@ function App() {
                                                                     const newName = prompt("새로운 옵션 이름:", opt.name);
                                                                     if (newName && newName.trim()) handleManageSelectOption('UPDATE_OPTION', { optionId: opt.id, newName });
                                                                 }}>✏️</button>
-                                                                <button className="text-base" onClick={() => {
-                                                                    if (window.confirm(`'${opt.name}' 옵션을 삭제하시겠습니까?`)) handleManageSelectOption('DELETE_OPTION', { optionId: opt.id });
-                                                                }}>❌</button>
                                                             </div>
                                                         </div>
                                                     ))}
@@ -741,4 +761,3 @@ function App() {
 }
 
 export default App;
-
