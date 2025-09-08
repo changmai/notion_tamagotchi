@@ -1,29 +1,9 @@
 import React, { useState, useRef, useLayoutEffect } from 'react';
 import { gsap } from 'gsap';
 
-// --- 타입 정의 ---
-export interface HealthStatus {
-    icon: string;
-    status: string;
-    message: string;
-    color: string;
-    lastUpdateText: string;
-}
-
-export interface CharacterCardProps {
-    level: number;
-    rebirthCount: number;
-    progress: number;
-    xpInCurrentLevel: number;
-    xpForNextLevel: number;
-    totalExp: number;
-    healthStatus?: HealthStatus | null;
-    pageCount?: number;
-    weeklyGoal?: number;
-    weeklyExp?: number;
-}
-
-// --- 레벨별 스타일 정의 ---
+// =======================================================================
+// 1. 캐릭터 스타일 정의
+// =======================================================================
 const levelStyles: { [key: number]: any } = {
     1: { bodyFill: 'rgb(251, 113, 133)', highlightFill: 'rgb(253, 164, 175)', strokeFill: 'rgb(136, 19, 55)', tongueFill: 'rgb(220, 20, 60)', showCrown: false, showGem: false, showWingsAndMagic: false, showAura: false },
     2: { bodyFill: '#87CEEB', highlightFill: '#B0E0E6', strokeFill: '#4682B4', tongueFill: '#FF6347', showCrown: false, showGem: false, showWingsAndMagic: false, showAura: false },
@@ -37,7 +17,9 @@ const levelStyles: { [key: number]: any } = {
     10: { bodyFill: '#D3D3D3', highlightFill: '#F5F5F5', strokeFill: '#696969', tongueFill: '#B22222', showCrown: true, crownFill: '#FFD700', showGem: true, gemFill: '#DA70D6', showWingsAndMagic: true, showAura: true, auraFill: 'url(#rainbowAura)' },
 };
 
-// --- 캐릭터 SVG 컴포넌트 ---
+// =======================================================================
+// 2. 캐릭터 SVG 컴포넌트 (날개와 마법진 모두 포함)
+// =======================================================================
 const CharacterSVG: React.FC<{ svgRef: React.Ref<SVGSVGElement>, level: number }> = ({ svgRef, level }) => {
     const styles = levelStyles[level] || levelStyles[1];
     const isMultiGemLevel = level >= 7;
@@ -114,6 +96,7 @@ const CharacterSVG: React.FC<{ svgRef: React.Ref<SVGSVGElement>, level: number }
             className="w-full h-full overflow-visible"
         >
             <defs>
+                {/* 기존 레인보우 그라디언트 */}
                 <linearGradient id="rainbowAura" x1="0%" y1="0%" x2="100%" y2="100%">
                     <stop offset="0%" stopColor="red" />
                     <stop offset="20%" stopColor="orange" />
@@ -123,6 +106,7 @@ const CharacterSVG: React.FC<{ svgRef: React.Ref<SVGSVGElement>, level: number }
                     <stop offset="100%" stopColor="purple" />
                 </linearGradient>
 
+                {/* 무지개 날개 그라디언트 */}
                 <linearGradient id="rainbowWingGradient" x1="0%" y1="0%" x2="100%" y2="100%">
                     <stop offset="0%" stopColor="#ff6b6b" stopOpacity="0.9" />
                     <stop offset="20%" stopColor="#ffa500" stopOpacity="0.9" />
@@ -132,6 +116,7 @@ const CharacterSVG: React.FC<{ svgRef: React.Ref<SVGSVGElement>, level: number }
                     <stop offset="100%" stopColor="#8000ff" stopOpacity="0.9" />
                 </linearGradient>
 
+                {/* 무지개 마법진 그라디언트 */}
                 <radialGradient id="rainbowCircleGradient" cx="50%" cy="50%" r="50%">
                     <stop offset="0%" stopColor="#FFD700" stopOpacity="0.4" />
                     <stop offset="30%" stopColor="#ff6b6b" stopOpacity="0.3" />
@@ -139,6 +124,7 @@ const CharacterSVG: React.FC<{ svgRef: React.Ref<SVGSVGElement>, level: number }
                     <stop offset="100%" stopColor="#8000ff" stopOpacity="0.2" />
                 </radialGradient>
 
+                {/* 진짜 오로라 같은 그라디언트들 */}
                 <radialGradient id="goldAuraGradient" cx="50%" cy="50%" r="70%">
                     <stop offset="0%" stopColor="gold" stopOpacity="0" />
                     <stop offset="20%" stopColor="gold" stopOpacity="0.1" />
@@ -159,6 +145,7 @@ const CharacterSVG: React.FC<{ svgRef: React.Ref<SVGSVGElement>, level: number }
                     <stop offset="100%" stopColor="#8000ff" stopOpacity="0" />
                 </radialGradient>
 
+                {/* 오로라 웨이브 그라디언트 */}
                 <linearGradient id="auroraWave" x1="0%" y1="0%" x2="100%" y2="100%">
                     <stop offset="0%" stopColor="gold" stopOpacity="0.05" />
                     <stop offset="25%" stopColor="gold" stopOpacity="0.15" />
@@ -176,6 +163,7 @@ const CharacterSVG: React.FC<{ svgRef: React.Ref<SVGSVGElement>, level: number }
                     <stop offset="100%" stopColor="#8000ff" stopOpacity="0.03" />
                 </linearGradient>
 
+                {/* 오로라 블러 효과 */}
                 <filter id="auraGlow">
                     <feGaussianBlur stdDeviation="8" result="coloredBlur"/>
                     <feMerge>
@@ -192,10 +180,12 @@ const CharacterSVG: React.FC<{ svgRef: React.Ref<SVGSVGElement>, level: number }
                     <feGaussianBlur stdDeviation="15"/>
                 </filter>
 
+                {/* 날개 그림자 효과 */}
                 <filter id="wingShadow">
                     <feDropShadow dx="3" dy="3" stdDeviation="4" floodOpacity="0.5"/>
                 </filter>
 
+                {/* 마법진 글로우 효과 */}
                 <filter id="magicGlow">
                     <feGaussianBlur stdDeviation="3" result="coloredBlur"/>
                     <feMerge>
@@ -206,8 +196,10 @@ const CharacterSVG: React.FC<{ svgRef: React.Ref<SVGSVGElement>, level: number }
             </defs>
 
             <g data-name="character-container">
+                {/* 진짜 오로라 같은 다층 아우라 */}
                 {styles.showAura && (
                     <g data-name="aura">
+                        {/* 가장 외곽 오로라 - 매우 흐리게 */}
                         <ellipse cx="125" cy="125.8" rx="200" ry="200" 
                             fill={level === 10 ? "url(#rainbowAuraGradient)" : "url(#goldAuraGradient)"} 
                             filter="url(#softAura)"
@@ -220,6 +212,7 @@ const CharacterSVG: React.FC<{ svgRef: React.Ref<SVGSVGElement>, level: number }
                                 repeatCount="indefinite"/>
                         </ellipse>
 
+                        {/* 웨이브 오로라 레이어 */}
                         <ellipse cx="125" cy="125.8" rx="170" ry="190" 
                             fill={level === 10 ? "url(#rainbowWave)" : "url(#auroraWave)"} 
                             filter="url(#auraBlur)"
@@ -237,6 +230,7 @@ const CharacterSVG: React.FC<{ svgRef: React.Ref<SVGSVGElement>, level: number }
                                 repeatCount="indefinite"/>
                         </ellipse>
 
+                        {/* 중간 오로라 */}
                         <ellipse cx="125" cy="125.8" rx="160" ry="160" 
                             fill={level === 10 ? "url(#rainbowAuraGradient)" : "url(#goldAuraGradient)"} 
                             filter="url(#auraGlow)"
@@ -254,6 +248,7 @@ const CharacterSVG: React.FC<{ svgRef: React.Ref<SVGSVGElement>, level: number }
                                 repeatCount="indefinite"/>
                         </ellipse>
 
+                        {/* 내부 오로라 - 가장 선명 */}
                         <ellipse cx="125" cy="125.8" rx="140" ry="140" 
                             fill={level === 10 ? "url(#rainbowAuraGradient)" : "url(#goldAuraGradient)"} 
                             opacity="0.08">
@@ -264,6 +259,7 @@ const CharacterSVG: React.FC<{ svgRef: React.Ref<SVGSVGElement>, level: number }
                                 repeatCount="indefinite"/>
                         </ellipse>
 
+                        {/* 펄싱 오로라 효과 */}
                         <ellipse cx="125" cy="125.8" rx="180" ry="180" 
                             fill={level === 10 ? "url(#rainbowWave)" : "url(#auroraWave)"} 
                             filter="url(#softAura)"
@@ -287,8 +283,10 @@ const CharacterSVG: React.FC<{ svgRef: React.Ref<SVGSVGElement>, level: number }
                     </g>
                 )}
 
+                {/* 개선된 바닥 마법진 (타원형으로 입체감) */}
                 {styles.showWingsAndMagic && circleStyle && (
                     <g data-name="magic-circle" transform="translate(125, 230)">
+                        {/* 외곽 타원 (바닥에 깔린 느낌) */}
                         <ellipse 
                             rx="70" 
                             ry="25"
@@ -304,6 +302,8 @@ const CharacterSVG: React.FC<{ svgRef: React.Ref<SVGSVGElement>, level: number }
                                 dur="12s" 
                                 repeatCount="indefinite"/>
                         </ellipse>
+
+                        {/* 중간 타원 */}
                         <ellipse 
                             rx="50" 
                             ry="18"
@@ -318,6 +318,8 @@ const CharacterSVG: React.FC<{ svgRef: React.Ref<SVGSVGElement>, level: number }
                                 dur="8s" 
                                 repeatCount="indefinite"/>
                         </ellipse>
+
+                        {/* 내부 타원 */}
                         <ellipse 
                             rx="30" 
                             ry="10"
@@ -332,6 +334,8 @@ const CharacterSVG: React.FC<{ svgRef: React.Ref<SVGSVGElement>, level: number }
                                 dur="6s" 
                                 repeatCount="indefinite"/>
                         </ellipse>
+
+                        {/* 룬 문자들 (타원 궤도를 따라, 바닥에 깔린 느낌) */}
                         {Array.from({ length: circleStyle.runeCount }, (_, i) => {
                             const angle = (360 / circleStyle.runeCount) * i;
                             const runes = ['ᚱ', 'ᚢ', 'ᚾ', 'ᛖ', 'ᚴ', 'ᚨ', 'ᚦ', 'ᛏ', 'ᚠ', 'ᚺ', 'ᛚ', 'ᚷ'];
@@ -356,6 +360,8 @@ const CharacterSVG: React.FC<{ svgRef: React.Ref<SVGSVGElement>, level: number }
                                 </text>
                             );
                         })}
+
+                        {/* 중앙 별 (입체감 적용) */}
                         <polygon
                             points="0,-10 4,-4 10,0 4,4 0,10 -4,4 -10,0 -4,-4"
                             fill={circleStyle.runeColor}
@@ -377,8 +383,10 @@ const CharacterSVG: React.FC<{ svgRef: React.Ref<SVGSVGElement>, level: number }
                     </g>
                 )}
 
+                {/* 날개 (캐릭터와 함께 움직임) - 더 바깥쪽으로 배치 */}
                 {wingStyle && (
                     <g data-name="wings" opacity={wingStyle.wingOpacity}>
+                        {/* 왼쪽 날개 - 훨씬 더 바깥쪽으로 (25 → 10) */}
                         <g transform={`translate(25, 125) scale(${wingStyle.wingSize})`}>
                             <path
                                 d="M0,0 Q-30,-20 -50,-10 Q-45,-5 -30,10 Q-20,25 -10,20 Q-5,10 0,0"
@@ -396,6 +404,7 @@ const CharacterSVG: React.FC<{ svgRef: React.Ref<SVGSVGElement>, level: number }
                                 />
                             </path>
 
+                            {/* 깃털 디테일 */}
                             {wingStyle.feathers !== 'simple' && (
                                 <g opacity="0.8">
                                     <path d="M-15,4 Q-22,-4 -30,0" stroke={wingStyle.wingStroke} strokeWidth="1.5" fill="none"/>
@@ -411,6 +420,7 @@ const CharacterSVG: React.FC<{ svgRef: React.Ref<SVGSVGElement>, level: number }
                             )}
                         </g>
 
+                        {/* 오른쪽 날개 - 훨씬 더 바깥쪽으로 (225 → 240) */}
                         <g transform={`translate(225, 125) scale(${wingStyle.wingSize}) scale(-1, 1)`}>
                             <path
                                 d="M0,0 Q-30,-20 -50,-10 Q-45,-5 -30,10 Q-20,25 -10,20 Q-5,10 0,0"
@@ -428,6 +438,7 @@ const CharacterSVG: React.FC<{ svgRef: React.Ref<SVGSVGElement>, level: number }
                                 />
                             </path>
 
+                            {/* 깃털 디테일 */}
                             {wingStyle.feathers !== 'simple' && (
                                 <g opacity="0.8">
                                     <path d="M-15,4 Q-22,-4 -30,0" stroke={wingStyle.wingStroke} strokeWidth="1.5" fill="none"/>
@@ -443,8 +454,10 @@ const CharacterSVG: React.FC<{ svgRef: React.Ref<SVGSVGElement>, level: number }
                             )}
                         </g>
 
+                        {/* 레벨 10 특별 효과 - 날개 주변 파티클 */}
                         {level >= 10 && (
                             <g>
+                                {/* 왼쪽 날개 파티클 */}
                                 {Array.from({ length: 6 }, (_, i) => (
                                     <circle
                                         key={`left-${i}`}
@@ -467,6 +480,7 @@ const CharacterSVG: React.FC<{ svgRef: React.Ref<SVGSVGElement>, level: number }
                                         />
                                     </circle>
                                 ))}
+                                {/* 오른쪽 날개 파티클 */}
                                 {Array.from({ length: 6 }, (_, i) => (
                                     <circle
                                         key={`right-${i}`}
@@ -494,6 +508,7 @@ const CharacterSVG: React.FC<{ svgRef: React.Ref<SVGSVGElement>, level: number }
                     </g>
                 )}
 
+                {/* 캐릭터 본체 */}
                 <g data-name="character-body">
                     <circle cx="125" cy="125.8" r="119.5" style={{ fill: styles.bodyFill }}></circle>
                     <ellipse cx="125" cy="108.3" rx="114" ry="102" style={{ fill: styles.highlightFill }}></ellipse>
@@ -508,6 +523,7 @@ const CharacterSVG: React.FC<{ svgRef: React.Ref<SVGSVGElement>, level: number }
                     </g>
                 </g>
 
+                {/* 얼굴 */}
                 <g data-name="face">
                     <path
                         data-name="mouth"
@@ -521,6 +537,7 @@ const CharacterSVG: React.FC<{ svgRef: React.Ref<SVGSVGElement>, level: number }
                                 <ellipse cx="65" cy="125.6" rx="16" ry="18" style={{ fill: styles.strokeFill }} />
                                 <ellipse cx="73" cy="117" rx="7" ry="5" style={{ fill: 'white' }} />
                             </g>
+                            {/* ✨ 볼터치(Blusher)로 변경 */}
                             <ellipse cx="35" cy="158" rx="18" ry="12" fill="rgb(255, 127, 127)" opacity="0.6" />
                         </g>
                         <g data-name="right-eye-group">
@@ -529,11 +546,13 @@ const CharacterSVG: React.FC<{ svgRef: React.Ref<SVGSVGElement>, level: number }
                                 <ellipse cx="185" cy="125.8" rx="16" ry="18" style={{ fill: styles.strokeFill }} />
                                 <ellipse cx="193" cy="117.8" rx="7" ry="5" style={{ fill: 'white' }} />
                             </g>
+                            {/* ✨ 볼터치(Blusher)로 변경 */}
                             <ellipse cx="215" cy="158" rx="18" ry="12" fill="rgb(255, 127, 127)" opacity="0.6" />
                         </g>
                     </g>
                 </g>
 
+                {/* 왕관 */}
                 {styles.showCrown && (
                     <g data-name="crown" transform="translate(-12.5, -40) scale(1.1)">
                         <path d="M 70 40 L 90 60 L 125 30 L 160 60 L 180 40 L 170 70 L 80 70 Z" fill={styles.strokeFill} transform="translate(2, 2)" opacity="0.4" />
@@ -555,20 +574,27 @@ const CharacterSVG: React.FC<{ svgRef: React.Ref<SVGSVGElement>, level: number }
     );
 };
 
+// =======================================================================
+// 3. 캐릭터 카드 컴포넌트
+// =======================================================================
+interface CharacterCardProps {
+    level: number;
+    rebirthCount: number;
+    progress: number;
+    xpInCurrentLevel: number;
+    xpForNextLevel: number;
+    totalExp: number;
+    healthStatus?: {
+        icon: string;
+        status: string;
+        message: string;
+        color: string;
+        lastUpdateText: string;
+    } | null;
+    pageCount?: number;
+}
 
-// --- 캐릭터 카드 컴포넌트 ---
-const CharacterCard: React.FC<CharacterCardProps> = ({ 
-    level, 
-    rebirthCount, 
-    progress, 
-    xpInCurrentLevel, 
-    xpForNextLevel, 
-    totalExp, 
-    healthStatus, 
-    pageCount = 0,
-    weeklyGoal = 0,
-    weeklyExp = 0,
-}) => {
+const CharacterCard: React.FC<CharacterCardProps> = ({ level, rebirthCount, progress, xpInCurrentLevel, xpForNextLevel, totalExp, healthStatus, pageCount = 0 }) => {
     const [clickCount, setClickCount] = useState(0);
     const [isAnimating, setIsAnimating] = useState(false);
 
@@ -662,7 +688,6 @@ const CharacterCard: React.FC<CharacterCardProps> = ({
     };
 
     const currentTheme = levelStyles[level] || levelStyles[1];
-    const weeklyProgress = weeklyGoal > 0 ? Math.min((weeklyExp / weeklyGoal) * 100, 100) : 0;
 
     return (
         <div ref={cardRef} className="relative w-full max-w-sm mx-auto rounded-xl shadow-2xl overflow-hidden border-4" style={{ borderColor: currentTheme.strokeFill, backgroundColor: currentTheme.highlightFill }}>
@@ -674,6 +699,7 @@ const CharacterCard: React.FC<CharacterCardProps> = ({
                 </div>
             </div>
             <div className="p-4">
+                {/* 건강 상태 표시 (캐릭터 위쪽) */}
                 {healthStatus && (
                     <div className="mb-3 flex justify-center">
                         <div className="inline-flex items-center px-3 py-1.5 rounded-full text-xs font-medium shadow-sm border-2" 
@@ -691,32 +717,21 @@ const CharacterCard: React.FC<CharacterCardProps> = ({
                 )}
 
                 <div ref={characterRef} onClick={handleClick} className="cursor-pointer w-40 h-40 mx-auto relative" title="Click me!">
+                    {/* SVG 캐릭터 레이어 (날개와 마법진 모두 포함) */}
                     <div className="relative z-10">
                         <CharacterSVG svgRef={svgRef} level={level} />
                     </div>
                 </div>
                 <div className="mt-6 space-y-4 w-full px-4">
-                    <div>
-                        <div className="w-full bg-gray-200 rounded-full h-4" style={{ backgroundColor: currentTheme.bodyFill }}>
-                            <div className="h-4 rounded-full transition-all duration-500" style={{ width: `${progress}%`, backgroundColor: currentTheme.strokeFill }}></div>
-                        </div>
-                        <div className="flex items-center justify-between text-xs mt-1" style={{ color: currentTheme.strokeFill }}>
-                            <span>XP: {`${xpInCurrentLevel.toFixed(0)} / ${xpForNextLevel.toFixed(0)}`}</span>
-                            <span>Total: {totalExp}</span>
-                        </div>
+                    <div className="w-full bg-gray-200 rounded-full h-4" style={{ backgroundColor: currentTheme.bodyFill }}>
+                        <div className="h-4 rounded-full transition-all duration-500" style={{ width: `${progress}%`, backgroundColor: currentTheme.strokeFill }}></div>
                     </div>
-
-                    {weeklyGoal > 0 && (
-                         <div>
-                            <div className="w-full bg-gray-200 rounded-full h-3" style={{ backgroundColor: currentTheme.bodyFill }}>
-                                <div className="h-3 rounded-full transition-all duration-500" style={{ width: `${weeklyProgress}%`, backgroundColor: currentTheme.strokeFill }}></div>
-                            </div>
-                            <div className="flex items-center justify-between text-xs mt-1" style={{ color: currentTheme.strokeFill }}>
-                                <span>주간 목표: {`${weeklyExp.toFixed(0)} / ${weeklyGoal.toFixed(0)}`}</span>
-                            </div>
-                        </div>
-                    )}
+                    <div className="flex items-center justify-between text-xs" style={{ color: currentTheme.strokeFill }}>
+                        <span>XP: {`${xpInCurrentLevel.toFixed(0)} / ${xpForNextLevel.toFixed(0)}`}</span>
+                        <span>Total: {totalExp}</span>
+                    </div>
                     
+                    {/* 통계 정보 영역 - 컴팩트한 한 줄 레이아웃 */}
                     <div className="flex justify-center space-x-4">
                         <div className="flex items-center px-3 py-1.5 rounded-lg border-2" 
                              style={{ 
@@ -738,6 +753,7 @@ const CharacterCard: React.FC<CharacterCardProps> = ({
                         </div>
                     </div>
 
+                    {/* 건강 상태 메시지 (하단) */}
                     {healthStatus && (
                         <div className="text-center">
                             <p className="text-xs italic opacity-80" style={{ color: currentTheme.strokeFill }}>
@@ -752,4 +768,3 @@ const CharacterCard: React.FC<CharacterCardProps> = ({
 };
 
 export default CharacterCard;
-
