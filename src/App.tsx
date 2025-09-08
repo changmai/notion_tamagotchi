@@ -167,7 +167,7 @@ function App() {
     const toggleSidebar = () => setSidebarOpen(!isSidebarOpen);
 
     const handleNotionConnect = () => {
-        const NOTION_CLIENT_ID = "YOUR_NOTION_CLIENT_ID"; // 본인의 Notion Client ID로 교체
+        const NOTION_CLIENT_ID = "259d872b-594c-80c7-9fd9-0037bc5be4d1"; // 본인의 Notion Client ID로 교체
         const NOTION_REDIRECT_URI = window.location.origin;
         const authUrl = `https://api.notion.com/v1/oauth/authorize?client_id=${NOTION_CLIENT_ID}&response_type=code&owner=user&redirect_uri=${encodeURIComponent(NOTION_REDIRECT_URI)}`;
         window.location.href = authUrl;
