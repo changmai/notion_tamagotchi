@@ -450,28 +450,102 @@ function App() {
     const completedStatusOptions = useMemo(() => {
         if (!properties || !settings.statusPropertyName) return [];
         const statusProp = properties[settings.statusPropertyName];
-        if (statusProp?.type !== 'status' || !statusProp.status?.groups) return [];
+        if (!statusProp || statusProp.type !== 'status' || !statusProp.status?.groups) return [];
         const completeGroup = statusProp.status.groups.find(g => g.name === "Complete");
         if (!completeGroup) return [];
         const completeOptionIds = new Set(completeGroup.option_ids);
         return statusProp.status.options.filter(opt => completeOptionIds.has(opt.id));
     }, [properties, settings.statusPropertyName]);
     
-    // START: Dynamic UI component for difficulty settings
+    // --- RENDER ---
+    if (isLoading && !currentUser && !publicUserId) {
+        return (
+            <div className="min-h-screen flex items-center justify-center" style={{ fontFamily: "'Jua', sans-serif" }}>
+                앱을 불러오는 중...
+            </div>
+        );
+    }
+
+    if (publicUserId) {
+        return (
+            <div className="min-h-screen" style={{fontFamily: "'Jua', sans-serif", backgroundColor: 'transparent'}}>
+                <div className="min-h-screen flex items-center justify-center p-4">
+                    <div className="w-full max-w-sm mx-auto">
+                        {isLoading ? <p>캐릭터 정보를 불러오는 중...</p> :
+                            <CharacterCard
+                                level={levelData.level}
+                                rebirthCount={levelData.rebirthCount}
+                                progress={levelData.progress}
+                                xpInCurrentLevel={levelData.xpInCurrentLevel}
+                                xpForNextLevel={levelData.xpForNextLevel}
+                                totalExp={tamagotchiState.totalExp}
+                                healthStatus={healthStatus}
+                                pageCount={tamagotchiState.pageCount}
+                                weeklyGoal={tamagotchiState.weeklyGoal}
+                                weeklyExp={tamagotchiState.weeklyExp}
+                            />
+                        }
+                    </div>
+                </div>
+            </div>
+        );
+    }
+
+    // --- Child components for settings panel ---
+    const StatusSettingsComponent = () => {
+        if (loadingStates.prop) {
+            return <p className="text-xs text-center" style={{color: currentTheme.strokeFill}}>속성 로딩 중...</p>;
+        }
+
+        const selectedStatusProp = properties && settings.statusPropertyName ? properties[settings.statusPropertyName] : undefined;
+
+        if (statusProperties.length > 0) {
+            return (
+                <>
+                    {settings.statusPropertyName && !selectedStatusProp && (
+                        <p className="text-xs mb-2 text-red-600 font-bold text-center">
+                            저장된 '{settings.statusPropertyName}' 속성을 찾을 수 없습니다. 다시 선택해주세요.
+                        </p>
+                    )}
+                    <select value={settings.statusPropertyName} onChange={e => setSettings({...settings, statusPropertyName: e.target.value})}
+                            className="w-full p-1.5 border-2 rounded-lg text-xs font-medium shadow-sm" style={{ borderColor: currentTheme.strokeFill, color: currentTheme.strokeFill, backgroundColor: 'white' }}>
+                        <option value="">-- 상태 속성 선택 --</option>
+                        {statusProperties.map(p => <option key={p.id} value={p.name}>{p.name}</option>)}
+                    </select>
+                    {completedStatusOptions.length > 0 && (
+                        <div className="mt-2 pt-2 border-t-2 text-xs" style={{borderColor: currentTheme.strokeFill}}>
+                            <p className="font-bold mb-1" style={{color: currentTheme.strokeFill}}>✓ '완료' 처리 기준:</p>
+                            <div className="flex flex-wrap gap-1">
+                                {completedStatusOptions.map(opt => <span key={opt.id} className="px-2 py-0.5 rounded-full text-white text-[10px]" style={{backgroundColor: opt.color}}>{opt.name}</span>)}
+                            </div>
+                        </div>
+                    )}
+                </>
+            );
+        } else {
+            return (
+                <div className="text-center">
+                    <p className="text-xs mb-2" style={{color: currentTheme.strokeFill}}>'Status' 타입 속성을 찾을 수 없습니다.</p>
+                    <button onClick={handleCreateStatusProperty} disabled={loadingStates.prop}
+                            className="w-full text-white font-bold py-2 px-3 rounded-lg text-xs transition" style={{ backgroundColor: currentTheme.strokeFill }}>
+                        {loadingStates.prop ? "생성 중..." : "'상태' 속성 생성하기"}
+                    </button>
+                </div>
+            );
+        }
+    };
+
     const DifficultySettingsComponent = () => {
+        if (loadingStates.prop) {
+            return <div className="text-center text-xs p-4" style={{color: currentTheme.strokeFill}}>옵션 로딩 중...</div>;
+        }
         if (!settings.difficultyPropertyName || !properties) {
             return null;
         }
 
         const difficultyProp = properties[settings.difficultyPropertyName];
 
-        if (loadingStates.prop) {
-            return <div className="text-center text-xs p-4" style={{color: currentTheme.strokeFill}}>옵션 로딩 중...</div>;
-        }
-
-        // FIX: Add a guard here to check if the property actually exists.
-        // This can happen if a property was deleted from Notion but still saved in settings.
-        if (settings.difficultyPropertyName && !difficultyProp) {
+        if (!difficultyProp) {
             return (
                 <div className="mt-2 pt-2 border-t-2 text-center" style={{ borderColor: currentTheme.strokeFill }}>
                     <p className="text-xs mb-2 text-red-600 font-bold">
@@ -488,17 +562,13 @@ function App() {
             );
         }
 
-        const isNotSelectType = difficultyProp.type !== 'select';
-        const hasNoOptions = difficultyProp.type === 'select' && (!difficultyProp.select?.options || difficultyProp.select.options.length === 0);
-
-        // Case: Not a select type OR a select type with 0 options
-        if (isNotSelectType || hasNoOptions) {
+        if (difficultyProp.type !== 'select' || !difficultyProp.select?.options || difficultyProp.select.options.length === 0) {
             return (
                 <div className="mt-2 pt-2 border-t-2" style={{ borderColor: currentTheme.strokeFill }}>
-                    {isNotSelectType && (
+                    {difficultyProp.type !== 'select' && (
                         <p className="text-center text-xs mb-2 text-red-600 font-bold">선택한 속성은 'Select' 타입이어야 합니다.</p>
                     )}
-                    {hasNoOptions && (
+                    {(!difficultyProp.select?.options || difficultyProp.select.options.length === 0) && (
                         <p className="text-center text-xs mb-2" style={{color: currentTheme.strokeFill}}>선택값이 없습니다.</p>
                     )}
                     <p className="text-center text-xs mb-2 opacity-80" style={{color: currentTheme.strokeFill}}>
@@ -512,11 +582,9 @@ function App() {
             );
         }
         
-        // At this point, we know difficultyProp is a select property with options.
         const options = difficultyProp.select.options;
         const numOptions = options.length;
 
-        // Cases: 1 or more options
         return (
             <div className="mt-2 pt-2 border-t-2" style={{ borderColor: currentTheme.strokeFill }}>
                 <h4 className="font-bold text-xs mb-2 text-center" style={{ color: currentTheme.strokeFill }}>난이도별 경험치 설정</h4>
@@ -560,40 +628,6 @@ function App() {
             </div>
         );
     };
-    // END: Dynamic UI component
-
-    if (isLoading && !currentUser && !publicUserId) {
-        return (
-            <div className="min-h-screen flex items-center justify-center" style={{ fontFamily: "'Jua', sans-serif" }}>
-                앱을 불러오는 중...
-            </div>
-        );
-    }
-
-    if (publicUserId) {
-        return (
-            <div className="min-h-screen" style={{fontFamily: "'Jua', sans-serif", backgroundColor: 'transparent'}}>
-                <div className="min-h-screen flex items-center justify-center p-4">
-                    <div className="w-full max-w-sm mx-auto">
-                        {isLoading ? <p>캐릭터 정보를 불러오는 중...</p> :
-                            <CharacterCard
-                                level={levelData.level}
-                                rebirthCount={levelData.rebirthCount}
-                                progress={levelData.progress}
-                                xpInCurrentLevel={levelData.xpInCurrentLevel}
-                                xpForNextLevel={levelData.xpForNextLevel}
-                                totalExp={tamagotchiState.totalExp}
-                                healthStatus={healthStatus}
-                                pageCount={tamagotchiState.pageCount}
-                                weeklyGoal={tamagotchiState.weeklyGoal}
-                                weeklyExp={tamagotchiState.weeklyExp}
-                            />
-                        }
-                    </div>
-                </div>
-            </div>
-        );
-    }
 
     return (
         <div className="bg-slate-100 min-h-screen" style={{fontFamily: "'Jua', sans-serif"}}>
@@ -704,37 +738,11 @@ function App() {
                                         </select>
                                     </div>
 
-                                    {settings.selectedDbId && (
+                                    {settings.selectedDbId && properties && (
                                     <>
                                         <div className="sidebar-section rounded-lg p-3 border-2">
                                             <h3 className="font-bold text-xs mb-2" style={{ color: currentTheme.strokeFill }}>3. 대표 상태 속성 (필수)</h3>
-                                            {loadingStates.prop ? (
-                                                <p className="text-xs text-center" style={{color: currentTheme.strokeFill}}>속성 로딩 중...</p>
-                                            ) : statusProperties.length > 0 ? (
-                                                <>
-                                                    <select value={settings.statusPropertyName} onChange={e => setSettings({...settings, statusPropertyName: e.target.value})}
-                                                            className="w-full p-1.5 border-2 rounded-lg text-xs font-medium shadow-sm" style={{ borderColor: currentTheme.strokeFill, color: currentTheme.strokeFill, backgroundColor: 'white' }}>
-                                                        <option value="">-- 상태 속성 선택 --</option>
-                                                        {statusProperties.map(p => <option key={p.id} value={p.name}>{p.name}</option>)}
-                                                    </select>
-                                                    {completedStatusOptions.length > 0 && (
-                                                        <div className="mt-2 pt-2 border-t-2 text-xs" style={{borderColor: currentTheme.strokeFill}}>
-                                                            <p className="font-bold mb-1" style={{color: currentTheme.strokeFill}}>✓ '완료' 처리 기준:</p>
-                                                            <div className="flex flex-wrap gap-1">
-                                                                {completedStatusOptions.map(opt => <span key={opt.id} className="px-2 py-0.5 rounded-full text-white text-[10px]" style={{backgroundColor: opt.color}}>{opt.name}</span>)}
-                                                            </div>
-                                                        </div>
-                                                    )}
-                                                </>
-                                            ) : (
-                                                <div className="text-center">
-                                                    <p className="text-xs mb-2" style={{color: currentTheme.strokeFill}}>'Status' 타입 속성을 찾을 수 없습니다.</p>
-                                                    <button onClick={handleCreateStatusProperty} disabled={loadingStates.prop}
-                                                            className="w-full text-white font-bold py-2 px-3 rounded-lg text-xs transition" style={{ backgroundColor: currentTheme.strokeFill }}>
-                                                        {loadingStates.prop ? "생성 중..." : "'상태' 속성 생성하기"}
-                                                    </button>
-                                                </div>
-                                            )}
+                                            <StatusSettingsComponent />
                                         </div>
                                         
                                         <div className="sidebar-section rounded-lg p-3 border-2">
@@ -746,7 +754,6 @@ function App() {
                                             </select>
                                             
                                             <DifficultySettingsComponent />
-
                                         </div>
 
                                         <div className="sidebar-section rounded-lg p-3 border-2">
