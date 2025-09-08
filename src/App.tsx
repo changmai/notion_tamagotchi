@@ -603,7 +603,7 @@ function App() {
                                             ) : (
                                                 <button onClick={() => handleCreateProperty('status')} disabled={loadingStates.prop}
                                                         className="w-full text-white font-bold py-2 px-3 rounded-lg text-xs transition" style={{backgroundColor: currentTheme.strokeFill}}>
-                                                    {loadingStates.prop ? "..." : "'상태' 속성 생성"}
+                                                    {loadingStates.prop ? "생성 중..." : "'상태' 속성 생성"}
                                                 </button>
                                             )}
                                         </div>
@@ -619,7 +619,7 @@ function App() {
                                             ) : (
                                                 <button onClick={() => handleCreateProperty('select')} disabled={loadingStates.prop}
                                                         className="w-full text-white font-bold py-2 px-3 rounded-lg text-xs transition" style={{backgroundColor: currentTheme.strokeFill}}>
-                                                    {loadingStates.prop ? "..." : "'업무난이도' 속성 생성"}
+                                                    {loadingStates.prop ? "생성 중..." : "'업무난이도' 속성 생성"}
                                                 </button>
                                             )}
                                             {settings.difficultyPropertyName && properties && properties[settings.difficultyPropertyName]?.select?.options && (
