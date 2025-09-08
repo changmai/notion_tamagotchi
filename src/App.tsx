@@ -249,6 +249,7 @@ function App() {
     };
 
     const fetchProperties = useCallback(async (dbId: string) => {
+        if (!dbId) return;
         setLoadingStates(prev => ({ ...prev, prop: true }));
         setProperties(null);
         try {
@@ -264,20 +265,40 @@ function App() {
     }, [functions]);
 
 
-    const handleCreateDifficultyProperty = useCallback(async () => {
+    const handleCreateProperty = useCallback(async (type: 'status' | 'select') => {
         if (!settings.selectedDbId) {
             alert("먼저 데이터베이스를 선택해주세요.");
             return;
         }
 
-        if (!window.confirm("'업무난이도' 속성을 새로 생성하시겠습니까?")) {
+        const confirmMessage = type === 'status'
+            ? "'상태' 속성을 새로 생성하시겠습니까?"
+            : "'업무난이도' 속성을 새로 생성하시겠습니까?";
+
+        if (!window.confirm(confirmMessage)) {
             return;
         }
 
         setLoadingStates(prev => ({...prev, prop: true}));
         try {
             const createProp = httpsCallable(functions, 'createProperty');
-            const propertyConfig = { "업무난이도": { select: { options: [{ name: "상" }, { name: "중" }, { name: "하" }, { name: "즉시처리" }] } } };
+            let propertyConfig = {};
+            if (type === 'status') {
+                // This logic is no longer used by the UI but is kept for reference
+                propertyConfig = {
+                    "상태": {
+                        status: {
+                            options: [
+                                { name: "시작 전", color: "default" },
+                                { name: "진행 중", color: "blue" },
+                                { name: "완료", color: "green" }
+                            ]
+                        }
+                    }
+                };
+            } else {
+                propertyConfig = { "업무난이도": { select: { options: [{ name: "상" }, { name: "중" }, { name: "하" }, { name: "즉시처리" }] } } };
+            }
             await createProp({ databaseId: settings.selectedDbId, propertyConfig });
             alert('속성이 생성되었습니다!');
             await fetchProperties(settings.selectedDbId);
@@ -596,14 +617,18 @@ function App() {
                                                     {statusProperties.map(p => <option key={p.id} value={p.name}>{p.name}</option>)}
                                                 </select>
                                             ) : (
-                                                <div className="text-xs text-center" style={{ color: currentTheme.strokeFill }}>
-                                                    <p className="mb-2">'상태' 속성을 Notion에서 직접 추가하세요.</p>
-                                                    <a href={`https://www.notion.so/${settings.selectedDbId}`} target="_blank" rel="noopener noreferrer"
-                                                        className="block text-white font-bold py-2 px-3 rounded-lg w-full transition mb-2" style={{backgroundColor: currentTheme.strokeFill}}>
+                                                <div className="text-center">
+                                                    <p className="text-xs mb-2 opacity-80" style={{ color: currentTheme.strokeFill }}>
+                                                        '상태' 속성을 노션에서 직접 추가하세요.
+                                                    </p>
+                                                    <button onClick={() => {
+                                                        window.open(`https://www.notion.so/${settings.selectedDbId}`, '_blank');
+                                                    }}
+                                                        className="w-full text-white font-bold py-2 px-3 rounded-lg text-xs transition mb-2 hover:opacity-80" style={{backgroundColor: currentTheme.strokeFill}}>
                                                         '상태' 속성 추가하러 가기
-                                                    </a>
+                                                    </button>
                                                     <button onClick={() => fetchProperties(settings.selectedDbId)} disabled={loadingStates.prop}
-                                                            className="w-full text-white font-bold py-2 px-3 rounded-lg transition" style={{backgroundColor: currentTheme.strokeFill}}>
+                                                        className="w-full text-white font-bold py-2 px-3 rounded-lg text-xs transition hover:opacity-80" style={{backgroundColor: currentTheme.strokeFill, opacity: loadingStates.prop ? 0.7 : 1}}>
                                                         {loadingStates.prop ? "업데이트 중..." : "속성 목록 업데이트"}
                                                     </button>
                                                 </div>
@@ -619,7 +644,7 @@ function App() {
                                                     {selectProperties.map(p => <option key={p.id} value={p.name}>{p.name}</option>)}
                                                 </select>
                                             ) : (
-                                                <button onClick={() => handleCreateDifficultyProperty()} disabled={loadingStates.prop}
+                                                <button onClick={() => handleCreateProperty('select')} disabled={loadingStates.prop}
                                                         className="w-full text-white font-bold py-2 px-3 rounded-lg text-xs transition" style={{backgroundColor: currentTheme.strokeFill}}>
                                                     {loadingStates.prop ? "생성 중..." : "'업무난이도' 속성 생성"}
                                                 </button>
@@ -634,7 +659,6 @@ function App() {
                                                                     const newName = prompt("새로운 옵션 이름:", opt.name);
                                                                     if (newName && newName.trim()) handleManageSelectOption('UPDATE_OPTION', { optionId: opt.id, newName });
                                                                 }}>✏️</button>
-                                                                {/* 삭제 버튼이 제거되었습니다. */}
                                                             </div>
                                                         </div>
                                                     ))}
@@ -736,4 +760,3 @@ function App() {
 }
 
 export default App;
-
