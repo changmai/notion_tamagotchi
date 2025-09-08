@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import CharacterCard from './CharacterCard'; // 우리가 만든 캐릭터 카드 컴포넌트
 
 // Firebase SDK import
@@ -10,7 +10,7 @@ import {
     signOut,
     onAuthStateChanged,
 } from "firebase/auth";
-import type { User } from "firebase/auth"; // 'User' 타입을 타입 전용으로 불러옵니다.
+import type { User } from "firebase/auth";
 import { 
     getFirestore, 
     doc, 
@@ -24,14 +24,15 @@ import { getFunctions, httpsCallable } from "firebase/functions";
 
 // --- ⚠️ 중요: 여기에 본인의 Firebase 설정 객체를 붙여넣으세요 ---
 const firebaseConfig = {
-    apiKey: "AIzaSyDZZMSJG4sh9Vw-T7pjMztC2swkOg1i8os",
-    authDomain: "notion-tamagotchi.firebaseapp.com",
-    projectId: "notion-tamagotchi",
-    storageBucket: "notion-tamagotchi.appspot.com",
-    messagingSenderId: "128399204318",
-    appId: "1:128399204318:web:197bf0d12b437b910f474f",
-    measurementId: "G-02V3VDK4Q6"
+    apiKey: "YOUR_API_KEY",
+    authDomain: "YOUR_AUTH_DOMAIN",
+    projectId: "YOUR_PROJECT_ID",
+    storageBucket: "YOUR_STORAGE_BUCKET",
+    messagingSenderId: "YOUR_MESSAGING_SENDER_ID",
+    appId: "YOUR_APP_ID",
+    measurementId: "YOUR_MEASUREMENT_ID"
 };
+
 
 // --- Firebase 서비스 초기화 ---
 const app = initializeApp(firebaseConfig);
@@ -40,23 +41,15 @@ const db = getFirestore(app);
 const functions = getFunctions(app, "asia-northeast3");
 const provider = new GoogleAuthProvider();
 
-// --- 레벨 계산 로직 (Updated with Rebirth Logic) ---
+// --- 레벨 계산 로직 ---
 const MAX_LEVEL = 10;
 const XP_FOR_REBIRTH_AT_MAX_LEVEL = 500;
 const CUMULATIVE_XP_FOR_LEVEL = [0, 100, 250, 450, 700, 1000, 1350, 1750, 2200, 2700];
+const XP_PER_CYCLE = CUMULATIVE_XP_FOR_LEVEL[MAX_LEVEL - 1] + XP_FOR_REBIRTH_AT_MAX_LEVEL;
 
-// 한 사이클(rebirth)당 총 필요 경험치
-const XP_PER_CYCLE = CUMULATIVE_XP_FOR_LEVEL[MAX_LEVEL - 1] + XP_FOR_REBIRTH_AT_MAX_LEVEL; // 2700 + 500 = 3200
-
-// **수정된 레벨 및 rebirth 계산 함수**
 const calculateLevelAndRebirthData = (totalExp: number) => {
-    // rebirth 횟수 계산
     const rebirthCount = Math.floor(totalExp / XP_PER_CYCLE);
-    
-    // 현재 사이클의 경험치 계산
     const currentCycleXp = totalExp % XP_PER_CYCLE;
-    
-    // 현재 사이클에서의 레벨 계산
     let level = 1;
     for (let i = CUMULATIVE_XP_FOR_LEVEL.length - 1; i >= 0; i--) {
         if (currentCycleXp >= CUMULATIVE_XP_FOR_LEVEL[i]) {
@@ -95,7 +88,7 @@ const calculateLevelAndRebirthData = (totalExp: number) => {
     };
 };
 
-// --- 레벨별 스타일 정의 (CharacterCard와 동일) ---
+// --- 레벨별 스타일 정의 ---
 const levelStyles: { [key: number]: any } = {
     1: { bodyFill: 'rgb(251, 113, 133)', highlightFill: 'rgb(253, 164, 175)', strokeFill: 'rgb(136, 19, 55)', tongueFill: 'rgb(220, 20, 60)', showCrown: false, showGem: false, showWingsAndMagic: false, showAura: false },
     2: { bodyFill: '#87CEEB', highlightFill: '#B0E0E6', strokeFill: '#4682B4', tongueFill: '#FF6347', showCrown: false, showGem: false, showWingsAndMagic: false, showAura: false },
@@ -118,7 +111,17 @@ interface TamagotchiState {
 }
 interface NotionSettings {
     selectedDbId: string;
-    propertyName: string;
+    xpPropertyName: string;
+    statusPropertyName?: string;
+    difficultyPropertyName?: string;
+}
+interface NotionProperty {
+  id: string;
+  name: string;
+  type: string;
+  select?: {
+    options: { id: string; name: string; color: string }[];
+  };
 }
 interface Database {
     id: string;
@@ -144,8 +147,8 @@ function App() {
     const [healthStatus, setHealthStatus] = useState<HealthStatus | null>(null);
     const [notionToken, setNotionToken] = useState<any>(null);
     const [databases, setDatabases] = useState<Database[]>([]);
-    const [properties, setProperties] = useState<string[]>([]);
-    const [settings, setSettings] = useState<NotionSettings>({ selectedDbId: '', propertyName: '' });
+    const [properties, setProperties] = useState<Record<string, NotionProperty> | null>(null);
+    const [settings, setSettings] = useState<NotionSettings>({ selectedDbId: '', xpPropertyName: '' });
     const [loadingStates, setLoadingStates] = useState({ notion: false, db: false, prop: false, save: false, refresh: false });
     const [copyButtonText, setCopyButtonText] = useState("복사");
 
@@ -165,19 +168,21 @@ function App() {
     const toggleSidebar = () => setSidebarOpen(!isSidebarOpen);
 
     const handleNotionConnect = () => {
-        const NOTION_CLIENT_ID = "259d872b-594c-80c7-9fd9-0037bc5be4d1";
+        const NOTION_CLIENT_ID = "259d872b-594c-80c7-9fd9-0037bc5be4d1"; // 본인의 Notion Client ID로 교체
         const NOTION_REDIRECT_URI = window.location.origin;
         const authUrl = `https://api.notion.com/v1/oauth/authorize?client_id=${NOTION_CLIENT_ID}&response_type=code&owner=user&redirect_uri=${encodeURIComponent(NOTION_REDIRECT_URI)}`;
         window.location.href = authUrl;
     };
 
     const handleSaveSettings = async () => {
-        if (!settings.selectedDbId || !settings.propertyName || !currentUser) return;
+        if (!settings.selectedDbId || !currentUser) return;
         setLoadingStates(prev => ({ ...prev, save: true }));
         try {
             await setDoc(doc(db, "users", currentUser.uid, "settings", "config"), settings);
-            const initializeExperience = httpsCallable(functions, 'initializeExperience');
-            await initializeExperience({ databaseId: settings.selectedDbId, propertyName: settings.propertyName });
+            if (settings.xpPropertyName) {
+                const initializeExperience = httpsCallable(functions, 'initializeExperience');
+                await initializeExperience({ databaseId: settings.selectedDbId, propertyName: settings.xpPropertyName });
+            }
             alert("설정이 저장되었습니다!");
             setSidebarOpen(false);
         } catch (error) {
@@ -194,10 +199,14 @@ function App() {
         try {
             const settingsSnap = await getDoc(doc(db, "users", currentUser.uid, "settings", "config"));
             if (settingsSnap.exists()) {
-                const { selectedDbId, propertyName } = settingsSnap.data();
-                const initializeExperience = httpsCallable(functions, 'initializeExperience');
-                await initializeExperience({ databaseId: selectedDbId, propertyName });
-                alert("데이터를 새로고침했습니다!");
+                const { selectedDbId, xpPropertyName } = settingsSnap.data();
+                if (selectedDbId && xpPropertyName) {
+                    const initializeExperience = httpsCallable(functions, 'initializeExperience');
+                    await initializeExperience({ databaseId: selectedDbId, propertyName: xpPropertyName });
+                    alert("데이터를 새로고침했습니다!");
+                } else {
+                    alert("경험치 속성 설정을 먼저 완료해주세요.");
+                }
             } else {
                 alert("먼저 설정을 완료해주세요.");
             }
@@ -240,6 +249,54 @@ function App() {
         });
     };
     
+    const handleCreateProperty = useCallback(async (type: 'status' | 'select') => {
+        if (!settings.selectedDbId) {
+            alert("먼저 데이터베이스를 선택해주세요.");
+            return;
+        }
+        setLoadingStates(prev => ({...prev, prop: true}));
+        try {
+            const createProp = httpsCallable(functions, 'createProperty');
+            let propertyConfig = {};
+            if (type === 'status') {
+                propertyConfig = { "상태": { status: {} } };
+            } else {
+                propertyConfig = { "업무난이도": { select: { options: [{ name: "상" }, { name: "중" }, { name: "하" }, { name: "즉시처리" }] } } };
+            }
+            await createProp({ databaseId: settings.selectedDbId, propertyConfig });
+            alert('속성이 생성되었습니다! 목록을 새로고침합니다.');
+            const getProps = httpsCallable(functions, 'getDatabaseProperties');
+            const result = await getProps({ databaseId: settings.selectedDbId });
+            setProperties((result.data as any).properties);
+        } catch (err: any) {
+            alert(`생성 실패: ${err.message}`);
+        } finally {
+            setLoadingStates(prev => ({...prev, prop: false}));
+        }
+    }, [settings.selectedDbId, functions]);
+
+    const handleManageSelectOption = useCallback(async (action: string, payload: any) => {
+        if (!settings.selectedDbId || !settings.difficultyPropertyName) return;
+        setLoadingStates(prev => ({...prev, prop: true}));
+        try {
+          const manageSelect = httpsCallable(functions, 'manageSelectProperty');
+          await manageSelect({
+            databaseId: settings.selectedDbId,
+            propertyName: settings.difficultyPropertyName,
+            action,
+            payload,
+          });
+          alert('옵션이 업데이트되었습니다!');
+          const getProps = httpsCallable(functions, 'getDatabaseProperties');
+          const result = await getProps({ databaseId: settings.selectedDbId });
+          setProperties((result.data as any).properties);
+        } catch (err: any) {
+          alert(`업데이트 실패: ${err.message}`);
+        } finally {
+            setLoadingStates(prev => ({...prev, prop: false}));
+        }
+    }, [settings.selectedDbId, settings.difficultyPropertyName, functions]);
+
     // --- 데이터 로딩 및 동기화 (Effects) ---
     useEffect(() => {
         const urlParams = new URLSearchParams(window.location.search);
@@ -289,20 +346,15 @@ function App() {
         setIsLoading(true);
 
         if (!publicUserId && currentUser) {
-            const tokenRef = doc(db, "users", currentUser.uid, "notion", "token");
-            getDoc(tokenRef).then((snap: DocumentSnapshot) => snap.exists() && setNotionToken(snap.data()));
-
-            const settingsRef = doc(db, "users", currentUser.uid, "settings", "config");
-            getDoc(settingsRef).then((snap: DocumentSnapshot) => snap.exists() && setSettings(snap.data() as NotionSettings));
+            getDoc(doc(db, "users", currentUser.uid, "notion", "token")).then((snap) => snap.exists() && setNotionToken(snap.data()));
+            getDoc(doc(db, "users", currentUser.uid, "settings", "config")).then((snap) => snap.exists() && setSettings(snap.data() as NotionSettings));
         }
         
-        const stateRef = doc(db, "users", userIdToFetch, "tamagotchi", "state");
-        const unsubscribe = onSnapshot(stateRef, 
-            (docSnap: DocumentSnapshot) => {
+        const unsubscribe = onSnapshot(doc(db, "users", userIdToFetch, "tamagotchi", "state"), 
+            (docSnap) => {
                 if (docSnap.exists()) {
                     setTamagotchiState(docSnap.data() as TamagotchiState);
                 } else if (publicUserId) {
-                    // 공개 ID가 있는데 데이터가 없는 경우
                     alert("해당 사용자의 캐릭터 정보를 찾을 수 없습니다.");
                 }
                 setIsLoading(false);
@@ -310,7 +362,7 @@ function App() {
             (error) => {
                 console.error("데이터 로딩 실패:", error);
                 setIsLoading(false);
-                alert("캐릭터 정보를 불러오는 데 실패했습니다. Firestore 권한을 확인해주세요.");
+                alert("캐릭터 정보를 불러오는 데 실패했습니다.");
             }
         );
 
@@ -325,11 +377,8 @@ function App() {
                     const getNotionDatabases = httpsCallable(functions, 'getNotionDatabases');
                     const result = await getNotionDatabases();
                     setDatabases((result.data as any).databases);
-                } catch (error) {
-                    console.error(error);
-                } finally {
-                    setLoadingStates(prev => ({ ...prev, db: false }));
-                }
+                } catch (error) { console.error(error); } 
+                finally { setLoadingStates(prev => ({ ...prev, db: false })); }
             };
             loadDatabases();
         }
@@ -339,16 +388,13 @@ function App() {
         if (settings.selectedDbId) {
             const loadProperties = async () => {
                 setLoadingStates(prev => ({ ...prev, prop: true }));
-                setProperties([]);
+                setProperties(null);
                 try {
                     const getDatabaseProperties = httpsCallable(functions, 'getDatabaseProperties');
                     const result = await getDatabaseProperties({ databaseId: settings.selectedDbId });
                     setProperties((result.data as any).properties);
-                } catch (error) {
-                    console.error(error);
-                } finally {
-                    setLoadingStates(prev => ({ ...prev, prop: false }));
-                }
+                } catch (error) { console.error(error); } 
+                finally { setLoadingStates(prev => ({ ...prev, prop: false })); }
             };
             loadProperties();
         }
@@ -373,24 +419,20 @@ function App() {
         }
     }, [tamagotchiState.lastUpdated]);
 
-    // --- **수정된 렌더링을 위한 데이터 계산** ---
     const levelData = calculateLevelAndRebirthData(tamagotchiState.totalExp);
     const currentTheme = levelStyles[levelData.level] || levelStyles[1];
     
-    // **디버깅 정보 추가**
-    console.log(`총 경험치: ${tamagotchiState.totalExp}, 계산된 rebirth: ${levelData.rebirthCount}, DB rebirth: ${tamagotchiState.rebirthCount}`);
+    const numberProperties = Object.values(properties || {}).filter(p => p.type === 'number' || p.type === 'formula');
+    const statusProperties = Object.values(properties || {}).filter(p => p.type === 'status');
+    const selectProperties = Object.values(properties || {}).filter(p => p.type === 'select');
     
     if (isLoading) {
-    return (
-        <div
-        className="min-h-screen flex items-center justify-center"
-        style={{ fontFamily: "'Jua', sans-serif", backgroundColor: 'transparent', color: 'inherit' }}
-        >
-        캐릭터를 불러오는 중...
-        </div>
-    );
+        return (
+            <div className="min-h-screen flex items-center justify-center" style={{ fontFamily: "'Jua', sans-serif", backgroundColor: 'transparent', color: 'inherit' }}>
+                캐릭터를 불러오는 중...
+            </div>
+        );
     }
-
     
     if (publicUserId) {
         return (
@@ -399,7 +441,7 @@ function App() {
                     <div className="w-full max-w-sm mx-auto">
                         <CharacterCard 
                             level={levelData.level}
-                            rebirthCount={levelData.rebirthCount} // **수정: 계산된 rebirth 사용**
+                            rebirthCount={levelData.rebirthCount}
                             progress={levelData.progress}
                             xpInCurrentLevel={levelData.xpInCurrentLevel}
                             xpForNextLevel={levelData.xpForNextLevel}
@@ -410,7 +452,7 @@ function App() {
                     </div>
                 </div>
             </div>
-        )
+        );
     }
 
     return (
@@ -421,16 +463,19 @@ function App() {
                 .hamburger-open .hamburger-line:nth-child(1) { transform: rotate(45deg) translate(5px, 5px); }
                 .hamburger-open .hamburger-line:nth-child(2) { opacity: 0; }
                 .hamburger-open .hamburger-line:nth-child(3) { transform: rotate(-45deg) translate(7px, -6px); }
-            `}</style>
+                .sidebar-section {
+                    background-color: ${currentTheme.bodyFill};
+                    border-color: ${currentTheme.strokeFill};
+                }
+             `}</style>
 
             <div className="min-h-screen flex items-center justify-center p-4">
-                {!currentUser && !publicUserId ? (
+                {!currentUser ? (
                     <div className="text-center">
                         <div className="text-8xl mb-6 animate-bounce-slow">🥚</div>
                         <h1 className="text-4xl font-bold mb-4 text-slate-800">Notion Pet</h1>
                         <p className="text-slate-600 mb-8 max-w-md mx-auto leading-relaxed text-sm">생산성을 게임처럼, Notion 데이터베이스와 연동하여 펫을 키워보세요!</p>
                         
-                        {/* 구글 로그인 버튼으로 변경 */}
                         <div className="space-y-4">
                             <button 
                                 onClick={handleSignIn}
@@ -470,114 +515,148 @@ function App() {
                         </div>
                     </div>
                 ) : (
-                    <div className="w-full max-w-sm mx-auto relative overflow-hidden">
-                        {/* 햄버거 버튼 - 캐릭터 박스 내부 좌상단 */}
-                        {currentUser && !publicUserId && (
-                            <button 
-                                onClick={toggleSidebar} 
-                                className={`absolute top-2 left-2 z-50 w-8 h-8 rounded-lg shadow-md flex flex-col items-center justify-center space-y-1 transition-all duration-300 hover:scale-105 ${isSidebarOpen ? 'hamburger-open' : ''}`}
+                    <div className="w-full max-w-sm mx-auto relative">
+                        <button 
+                            onClick={toggleSidebar} 
+                            className={`absolute top-2 left-2 z-50 w-8 h-8 rounded-lg shadow-md flex flex-col items-center justify-center space-y-1 transition-all duration-300 hover:scale-105 ${isSidebarOpen ? 'hamburger-open' : ''}`}
+                            style={{ 
+                                backgroundColor: currentTheme.highlightFill,
+                                border: `2px solid ${currentTheme.strokeFill}`
+                            }}
+                        >
+                            <div className="hamburger-line w-4 h-0.5 rounded-full" style={{ backgroundColor: currentTheme.strokeFill }}></div>
+                            <div className="hamburger-line w-4 h-0.5 rounded-full" style={{ backgroundColor: currentTheme.strokeFill }}></div>
+                            <div className="hamburger-line w-4 h-0.5 rounded-full" style={{ backgroundColor: currentTheme.strokeFill }}></div>
+                        </button>
+
+                        <div onClick={toggleSidebar} className={`fixed inset-0 bg-black/50 backdrop-blur-sm z-40 transition-opacity duration-300 ${isSidebarOpen ? 'opacity-100' : 'opacity-0 pointer-events-none'}`}></div>
+                        <div className={`absolute left-0 top-0 h-full w-72 rounded-xl border-4 shadow-2xl z-50 transition-transform duration-300 ease-in-out ${isSidebarOpen ? 'translate-x-0' : '-translate-x-full'}`}
                                 style={{ 
                                     backgroundColor: currentTheme.highlightFill,
-                                    border: `2px solid ${currentTheme.strokeFill}`
-                                }}
-                            >
-                                <div className="hamburger-line w-4 h-0.5 rounded-full" style={{ backgroundColor: currentTheme.strokeFill }}></div>
-                                <div className="hamburger-line w-4 h-0.5 rounded-full" style={{ backgroundColor: currentTheme.strokeFill }}></div>
-                                <div className="hamburger-line w-4 h-0.5 rounded-full" style={{ backgroundColor: currentTheme.strokeFill }}></div>
-                            </button>
-                        )}
-
-                        {/* 슬라이드 사이드바 - overflow hidden으로 숨김 처리 */}
-                        {currentUser && !publicUserId && (
-                            <>
-                                <div onClick={toggleSidebar} className={`fixed inset-0 bg-black/50 backdrop-blur-sm z-40 transition-opacity duration-300 ${isSidebarOpen ? 'opacity-100' : 'opacity-0 pointer-events-none'}`}></div>
-                                <div className={`absolute left-0 top-0 h-full w-72 rounded-xl border-4 shadow-2xl z-50 transition-transform duration-300 ease-in-out ${isSidebarOpen ? 'translate-x-0' : '-translate-x-full'}`}
-                                     style={{ 
-                                         backgroundColor: currentTheme.highlightFill,
-                                         borderColor: currentTheme.strokeFill
-                                     }}>
-                                    <div className="p-4 h-full flex flex-col overflow-y-auto">
-                                        <div className="flex items-center justify-between mb-6">
-                                            <div className="flex items-center space-x-2">
-                                                <div className="text-2xl">🥚</div>
-                                                <div>
-                                                    <h2 className="text-sm font-bold" style={{ color: currentTheme.strokeFill }}>설정</h2>
-                                                </div>
-                                            </div>
-                                            <button onClick={toggleSidebar} className="w-6 h-6 rounded-lg hover:bg-opacity-20 flex items-center justify-center transition"
-                                                    style={{ backgroundColor: currentTheme.bodyFill }}>
-                                                <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24" style={{ color: currentTheme.strokeFill }}>
-                                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M6 18L18 6M6 6l12 12"/>
-                                                </svg>
+                                    borderColor: currentTheme.strokeFill
+                                }}>
+                            <div className="p-4 h-full flex flex-col overflow-y-auto">
+                                <div className="flex items-center justify-between mb-6">
+                                    <div className="flex items-center space-x-2">
+                                        <div className="text-2xl">🥚</div>
+                                        <div>
+                                            <h2 className="text-sm font-bold" style={{ color: currentTheme.strokeFill }}>Notion 설정</h2>
+                                        </div>
+                                    </div>
+                                    <button onClick={toggleSidebar} className="w-6 h-6 rounded-lg hover:bg-opacity-20 flex items-center justify-center transition"
+                                            style={{ backgroundColor: currentTheme.bodyFill }}>
+                                        <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24" style={{ color: currentTheme.strokeFill }}>
+                                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M6 18L18 6M6 6l12 12"/>
+                                        </svg>
+                                    </button>
+                                </div>
+                                
+                                <div className="flex-1 space-y-3">
+                                    <div className="sidebar-section rounded-lg p-3 border-2">
+                                        <h3 className="font-bold text-xs mb-2" style={{ color: currentTheme.strokeFill }}>1. 데이터베이스 선택</h3>
+                                        {!notionToken ? (
+                                            <button onClick={handleNotionConnect} disabled={loadingStates.notion} 
+                                                    className="text-white font-bold py-2 px-3 rounded-lg w-full text-xs transition hover:opacity-80 border-2"
+                                                    style={{ backgroundColor: currentTheme.strokeFill, borderColor: currentTheme.strokeFill }}>
+                                                {loadingStates.notion ? "..." : "Notion 연동하기"}
                                             </button>
+                                        ) : (
+                                            <select value={settings.selectedDbId} onChange={e => setSettings({...settings, selectedDbId: e.target.value})} disabled={loadingStates.db} 
+                                                className="w-full p-1.5 border-2 rounded-lg text-xs font-medium shadow-sm" style={{ borderColor: currentTheme.strokeFill, color: currentTheme.strokeFill }}>
+                                                <option value="">{loadingStates.db ? "로딩중..." : "-- DB 선택 --"}</option>
+                                                {databases.map(db => <option key={db.id} value={db.id}>{db.title}</option>)}
+                                            </select>
+                                        )}
+                                    </div>
+                                    
+                                    {settings.selectedDbId && (
+                                    <>
+                                        <div className="sidebar-section rounded-lg p-3 border-2">
+                                            <h3 className="font-bold text-xs mb-2" style={{ color: currentTheme.strokeFill }}>2. 경험치 속성 (필수)</h3>
+                                            <select value={settings.xpPropertyName} onChange={e => setSettings({...settings, xpPropertyName: e.target.value})} disabled={loadingStates.prop}
+                                                    className="w-full p-1.5 border-2 rounded-lg text-xs font-medium shadow-sm" style={{ borderColor: currentTheme.strokeFill, color: currentTheme.strokeFill }}>
+                                                <option value="">{loadingStates.prop ? "로딩중..." : "-- 숫자 속성 선택 --"}</option>
+                                                {numberProperties.map(p => <option key={p.id} value={p.name}>{p.name}</option>)}
+                                            </select>
                                         </div>
 
-                                        <div className="mb-6">
-                                            <div className="text-center">
-                                                <div className="w-12 h-12 rounded-full mx-auto mb-2 flex items-center justify-center text-white font-bold text-sm" 
-                                                     style={{ backgroundColor: currentTheme.strokeFill }}>
-                                                    {currentUser.displayName?.charAt(0).toUpperCase()}
-                                                </div>
-                                                <p className="font-semibold mb-1 text-xs" style={{ color: currentTheme.strokeFill }}>{currentUser.displayName}</p>
-                                                <button onClick={handleSignOut} className="text-xs transition hover:opacity-70" style={{ color: currentTheme.strokeFill }}>로그아웃</button>
-                                            </div>
-                                        </div>
-                        
-                                        <div className="flex-1 space-y-3">
-                                            <div className="rounded-lg p-3 border-2" style={{ backgroundColor: currentTheme.bodyFill, borderColor: currentTheme.strokeFill }}>
-                                                <h3 className="font-bold text-xs mb-2" style={{ color: currentTheme.strokeFill }}>1. Notion 연동</h3>
-                                                <button onClick={handleNotionConnect} disabled={loadingStates.notion} 
-                                                        className="text-white font-bold py-2 px-3 rounded-lg w-full text-xs transition hover:opacity-80 border-2"
-                                                        style={{ 
-                                                            backgroundColor: notionToken ? '#16a34a' : currentTheme.strokeFill,
-                                                            borderColor: notionToken ? '#15803d' : currentTheme.strokeFill
-                                                        }}>
-                                                    {loadingStates.notion ? "..." : (notionToken ? "Notion 재연동" : "Notion 연동하기")}
+                                        <div className="sidebar-section rounded-lg p-3 border-2">
+                                            <h3 className="font-bold text-xs mb-2" style={{ color: currentTheme.strokeFill }}>3. 대표 상태 속성 (선택)</h3>
+                                            {statusProperties.length > 0 ? (
+                                                <select value={settings.statusPropertyName} onChange={e => setSettings({...settings, statusPropertyName: e.target.value})}
+                                                        className="w-full p-1.5 border-2 rounded-lg text-xs font-medium shadow-sm" style={{ borderColor: currentTheme.strokeFill, color: currentTheme.strokeFill }}>
+                                                    <option value="">-- 상태 속성 선택 --</option>
+                                                    {statusProperties.map(p => <option key={p.id} value={p.name}>{p.name}</option>)}
+                                                </select>
+                                            ) : (
+                                                <button onClick={() => handleCreateProperty('status')} disabled={loadingStates.prop}
+                                                        className="w-full text-white font-bold py-2 px-3 rounded-lg text-xs transition" style={{backgroundColor: currentTheme.strokeFill}}>
+                                                    {loadingStates.prop ? "..." : "'상태' 속성 생성"}
                                                 </button>
-                                                {notionToken && <p className="mt-1 text-xs text-green-600 font-bold">✓ 연동 완료</p>}
-                                            </div>
-                                            
-                                            {notionToken && (
-                                                <div className="rounded-lg p-3 border-2" style={{ backgroundColor: currentTheme.bodyFill, borderColor: currentTheme.strokeFill }}>
-                                                    <h3 className="font-bold text-xs mb-2" style={{ color: currentTheme.strokeFill }}>2. 경험치 설정</h3>
-                                                    <div className="space-y-2">
-                                                        <div>
-                                                            <label className="block text-xs font-bold mb-1" style={{ color: currentTheme.strokeFill }}>데이터베이스</label>
-                                                            <select value={settings.selectedDbId} onChange={e => setSettings({...settings, selectedDbId: e.target.value})} disabled={loadingStates.db} 
-                                                                    className="w-full p-1.5 border-2 rounded-lg text-xs font-medium shadow-sm"
-                                                                    style={{ borderColor: currentTheme.strokeFill, color: currentTheme.strokeFill }}>
-                                                                <option value="">{loadingStates.db ? "로딩중..." : "-- DB 선택 --"}</option>
-                                                                {databases.map(db => <option key={db.id} value={db.id}>{db.title}</option>)}
-                                                            </select>
+                                            )}
+                                        </div>
+
+                                        <div className="sidebar-section rounded-lg p-3 border-2">
+                                            <h3 className="font-bold text-xs mb-2" style={{ color: currentTheme.strokeFill }}>4. 업무난이도 속성 (선택)</h3>
+                                            {selectProperties.length > 0 ? (
+                                                <select value={settings.difficultyPropertyName} onChange={e => setSettings({...settings, difficultyPropertyName: e.target.value})}
+                                                        className="w-full p-1.5 border-2 rounded-lg text-xs font-medium shadow-sm" style={{ borderColor: currentTheme.strokeFill, color: currentTheme.strokeFill }}>
+                                                    <option value="">-- 단일 선택 속성 --</option>
+                                                    {selectProperties.map(p => <option key={p.id} value={p.name}>{p.name}</option>)}
+                                                </select>
+                                            ) : (
+                                                <button onClick={() => handleCreateProperty('select')} disabled={loadingStates.prop}
+                                                        className="w-full text-white font-bold py-2 px-3 rounded-lg text-xs transition" style={{backgroundColor: currentTheme.strokeFill}}>
+                                                    {loadingStates.prop ? "..." : "'업무난이도' 속성 생성"}
+                                                </button>
+                                            )}
+                                            {settings.difficultyPropertyName && properties && properties[settings.difficultyPropertyName]?.select?.options && (
+                                                <div className="mt-2 pt-2 border-t-2" style={{borderColor: currentTheme.strokeFill}}>
+                                                    {properties[settings.difficultyPropertyName].select.options.map(opt => (
+                                                        <div key={opt.id} className="flex items-center justify-between text-xs my-1">
+                                                            <span className="truncate pr-2">{opt.name}</span>
+                                                            <div className="flex-shrink-0">
+                                                                <button className="mr-1" onClick={() => {
+                                                                    const newName = prompt("새로운 옵션 이름:", opt.name);
+                                                                    if (newName && newName.trim()) handleManageSelectOption('UPDATE_OPTION', { optionId: opt.id, newName });
+                                                                }}>✏️</button>
+                                                                <button onClick={() => {
+                                                                    if (window.confirm(`'${opt.name}' 옵션을 삭제하시겠습니까?`)) handleManageSelectOption('DELETE_OPTION', { optionId: opt.id });
+                                                                }}>❌</button>
+                                                            </div>
                                                         </div>
-                                                        <div>
-                                                            <label className="block text-xs font-bold mb-1" style={{ color: currentTheme.strokeFill }}>경험치 속성</label>
-                                                            <select value={settings.propertyName} onChange={e => setSettings({...settings, propertyName: e.target.value})} disabled={loadingStates.prop || !settings.selectedDbId} 
-                                                                    className="w-full p-1.5 border-2 rounded-lg text-xs font-medium shadow-sm"
-                                                                    style={{ borderColor: currentTheme.strokeFill, color: currentTheme.strokeFill }}>
-                                                                <option value="">{loadingStates.prop ? "로딩중..." : "-- 속성 선택 --"}</option>
-                                                                {properties.map(prop => <option key={prop} value={prop}>{prop}</option>)}
-                                                            </select>
-                                                        </div>
+                                                    ))}
+                                                    <div className="flex mt-2">
+                                                        <input type="text" id="new-option-input" placeholder="새 옵션 추가" className="flex-1 text-xs p-1 rounded-l-md border-2" style={{borderColor: currentTheme.strokeFill}}/>
+                                                        <button onClick={() => {
+                                                            const input = document.getElementById('new-option-input') as HTMLInputElement;
+                                                            if (input.value && input.value.trim()) handleManageSelectOption('ADD_OPTION', { name: input.value.trim() });
+                                                            input.value = '';
+                                                        }} className="text-white font-bold px-2 rounded-r-md text-xs" style={{backgroundColor: currentTheme.strokeFill}}>+</button>
                                                     </div>
-                                                    <button onClick={handleSaveSettings} disabled={loadingStates.save || !settings.selectedDbId || !settings.propertyName} 
-                                                            className="bg-green-600 hover:bg-green-700 text-white font-bold py-2 px-3 rounded-lg mt-2 w-full text-xs border-2 border-green-700 shadow-lg transition">
-                                                        {loadingStates.save ? "..." : "설정 저장"}
-                                                    </button>
                                                 </div>
                                             )}
                                         </div>
-                                        <div className="mt-auto pt-4 border-t-2" style={{ borderColor: currentTheme.strokeFill }}>
-                                            <p className="text-xs text-center opacity-70" style={{ color: currentTheme.strokeFill }}>Made with ❤️</p>
-                                        </div>
+                                    </>
+                                    )}
+                                </div>
+
+                                <div className="mt-auto pt-4 border-t-2" style={{ borderColor: currentTheme.strokeFill }}>
+                                    <button onClick={handleSaveSettings} disabled={loadingStates.save || !settings.selectedDbId}
+                                            className="bg-green-600 hover:bg-green-700 text-white font-bold py-2 px-3 rounded-lg w-full text-xs border-2 border-green-700 shadow-lg transition disabled:bg-gray-400 disabled:border-gray-500">
+                                        {loadingStates.save ? "저장 중..." : "설정 저장"}
+                                    </button>
+                                    <div className="text-center mt-4">
+                                        <p className="font-semibold mb-1 text-xs" style={{ color: currentTheme.strokeFill }}>{currentUser.displayName}</p>
+                                        <button onClick={handleSignOut} className="text-xs transition hover:opacity-70" style={{ color: currentTheme.strokeFill }}>로그아웃</button>
                                     </div>
                                 </div>
-                            </>
-                        )}
-
+                            </div>
+                        </div>
+                        
                         <CharacterCard 
                             level={levelData.level}
-                            rebirthCount={levelData.rebirthCount} // **수정: 계산된 rebirth 사용**
+                            rebirthCount={levelData.rebirthCount}
                             progress={levelData.progress}
                             xpInCurrentLevel={levelData.xpInCurrentLevel}
                             xpForNextLevel={levelData.xpForNextLevel}
@@ -585,10 +664,8 @@ function App() {
                             healthStatus={healthStatus}
                             pageCount={tamagotchiState.pageCount}
                         />
-
-
                         
-                        {currentUser && !publicUserId && (
+                        {currentUser && (
                         <>
                             <div className="rounded-xl p-6 border-4 shadow-2xl mt-4" 
                                  style={{ 
@@ -637,7 +714,6 @@ function App() {
                             </div>
                         </>
                         )}
-
                     </div>
                 )}
             </div>
