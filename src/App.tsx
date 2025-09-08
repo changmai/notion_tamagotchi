@@ -469,8 +469,27 @@ function App() {
             return <div className="text-center text-xs p-4" style={{color: currentTheme.strokeFill}}>옵션 로딩 중...</div>;
         }
 
-        const isNotSelectType = difficultyProp && difficultyProp.type !== 'select';
-        const hasNoOptions = difficultyProp?.type === 'select' && (!difficultyProp.select?.options || difficultyProp.select.options.length === 0);
+        // FIX: Add a guard here to check if the property actually exists.
+        // This can happen if a property was deleted from Notion but still saved in settings.
+        if (settings.difficultyPropertyName && !difficultyProp) {
+            return (
+                <div className="mt-2 pt-2 border-t-2 text-center" style={{ borderColor: currentTheme.strokeFill }}>
+                    <p className="text-xs mb-2 text-red-600 font-bold">
+                        저장된 '{settings.difficultyPropertyName}' 속성을 찾을 수 없습니다.
+                    </p>
+                    <p className="text-xs mb-2" style={{color: currentTheme.strokeFill}}>
+                        다른 속성을 선택하거나 새로 생성해주세요.
+                    </p>
+                     <button onClick={handleCreateDifficultyProperty} disabled={loadingStates.prop}
+                            className="w-full text-white font-bold py-2 px-3 rounded-lg text-xs transition" style={{ backgroundColor: currentTheme.strokeFill }}>
+                        {loadingStates.prop ? "생성 중..." : "'업무난이도' 속성 생성"}
+                    </button>
+                </div>
+            );
+        }
+
+        const isNotSelectType = difficultyProp.type !== 'select';
+        const hasNoOptions = difficultyProp.type === 'select' && (!difficultyProp.select?.options || difficultyProp.select.options.length === 0);
 
         // Case: Not a select type OR a select type with 0 options
         if (isNotSelectType || hasNoOptions) {
@@ -492,8 +511,9 @@ function App() {
                 </div>
             );
         }
-
-        const options = difficultyProp.select?.options || [];
+        
+        // At this point, we know difficultyProp is a select property with options.
+        const options = difficultyProp.select.options;
         const numOptions = options.length;
 
         // Cases: 1 or more options
