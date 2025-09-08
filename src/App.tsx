@@ -23,13 +23,13 @@ import { getFunctions, httpsCallable } from "firebase/functions";
 
 // --- ⚠️ 중요: 여기에 본인의 Firebase 설정 객체를 붙여넣으세요 ---
 const firebaseConfig = {
-    apiKey: "AIzaSyDZZMSJG4sh9Vw-T7pjMztC2swkOg1i8os",
-    authDomain: "notion-tamagotchi.firebaseapp.com",
-    projectId: "notion-tamagotchi",
-    storageBucket: "notion-tamagotchi.appspot.com",
-    messagingSenderId: "128399204318",
-    appId: "1:128399204318:web:197bf0d12b437b910f474f",
-    measurementId: "G-02V3VDK4Q6"
+    apiKey: "YOUR_API_KEY", // Firebase 콘솔에서 실제 값을 복사하여 붙여넣으세요.
+    authDomain: "YOUR_AUTH_DOMAIN",
+    projectId: "YOUR_PROJECT_ID",
+    storageBucket: "YOUR_STORAGE_BUCKET",
+    messagingSenderId: "YOUR_MESSAGING_SENDER_ID",
+    appId: "YOUR_APP_ID",
+    measurementId: "YOUR_MEASUREMENT_ID"
 };
 
 
@@ -167,7 +167,7 @@ function App() {
     const toggleSidebar = () => setSidebarOpen(!isSidebarOpen);
 
     const handleNotionConnect = () => {
-        const NOTION_CLIENT_ID = "259d872b-594c-80c7-9fd9-0037bc5be4d1";
+        const NOTION_CLIENT_ID = "YOUR_NOTION_CLIENT_ID";
         const NOTION_REDIRECT_URI = window.location.origin;
         const authUrl = `https://api.notion.com/v1/oauth/authorize?client_id=${NOTION_CLIENT_ID}&response_type=code&owner=user&redirect_uri=${encodeURIComponent(NOTION_REDIRECT_URI)}`;
         window.location.href = authUrl;
@@ -249,7 +249,6 @@ function App() {
     };
 
     const fetchProperties = useCallback(async (dbId: string) => {
-        if (!dbId) return;
         setLoadingStates(prev => ({ ...prev, prop: true }));
         setProperties(null);
         try {
@@ -265,40 +264,20 @@ function App() {
     }, [functions]);
 
 
-    const handleCreateProperty = useCallback(async (type: 'status' | 'select') => {
+    const handleCreateDifficultyProperty = useCallback(async () => {
         if (!settings.selectedDbId) {
             alert("먼저 데이터베이스를 선택해주세요.");
             return;
         }
 
-        const confirmMessage = type === 'status'
-            ? "'상태' 속성을 새로 생성하시겠습니까?"
-            : "'업무난이도' 속성을 새로 생성하시겠습니까?";
-
-        if (!window.confirm(confirmMessage)) {
+        if (!window.confirm("'업무난이도' 속성을 새로 생성하시겠습니까?")) {
             return;
         }
 
         setLoadingStates(prev => ({...prev, prop: true}));
         try {
             const createProp = httpsCallable(functions, 'createProperty');
-            let propertyConfig = {};
-            if (type === 'status') {
-                // This logic is no longer used by the UI but is kept for reference
-                propertyConfig = {
-                    "상태": {
-                        status: {
-                            options: [
-                                { name: "시작 전", color: "default" },
-                                { name: "진행 중", color: "blue" },
-                                { name: "완료", color: "green" }
-                            ]
-                        }
-                    }
-                };
-            } else {
-                propertyConfig = { "업무난이도": { select: { options: [{ name: "상" }, { name: "중" }, { name: "하" }, { name: "즉시처리" }] } } };
-            }
+            const propertyConfig = { "업무난이도": { select: { options: [{ name: "상" }, { name: "중" }, { name: "하" }, { name: "즉시처리" }] } } };
             await createProp({ databaseId: settings.selectedDbId, propertyConfig });
             alert('속성이 생성되었습니다!');
             await fetchProperties(settings.selectedDbId);
@@ -617,19 +596,14 @@ function App() {
                                                     {statusProperties.map(p => <option key={p.id} value={p.name}>{p.name}</option>)}
                                                 </select>
                                             ) : (
-                                                <div className="text-center">
-                                                    <p className="text-xs mb-2 opacity-80" style={{ color: currentTheme.strokeFill }}>
-                                                        '상태' 속성을 노션에서 직접 추가하세요.
-                                                    </p>
-                                                    <button onClick={() => {
-                                                        const formatId = (id: string) => `${id.substr(0, 8)}-${id.substr(8, 4)}-${id.substr(12, 4)}-${id.substr(16, 4)}-${id.substr(20)}`;
-                                                        window.open(`https://www.notion.so/${formatId(settings.selectedDbId)}`, '_blank');
-                                                    }}
-                                                        className="w-full text-white font-bold py-2 px-3 rounded-lg text-xs transition mb-2 hover:opacity-80" style={{backgroundColor: currentTheme.strokeFill}}>
+                                                <div className="text-xs text-center" style={{ color: currentTheme.strokeFill }}>
+                                                    <p className="mb-2">'상태' 속성을 Notion에서 직접 추가하세요.</p>
+                                                    <a href={`https://www.notion.so/${settings.selectedDbId}`} target="_blank" rel="noopener noreferrer"
+                                                        className="block text-white font-bold py-2 px-3 rounded-lg w-full transition mb-2" style={{backgroundColor: currentTheme.strokeFill}}>
                                                         '상태' 속성 추가하러 가기
-                                                    </button>
+                                                    </a>
                                                     <button onClick={() => fetchProperties(settings.selectedDbId)} disabled={loadingStates.prop}
-                                                        className="w-full text-white font-bold py-2 px-3 rounded-lg text-xs transition hover:opacity-80" style={{backgroundColor: currentTheme.strokeFill, opacity: loadingStates.prop ? 0.7 : 1}}>
+                                                            className="w-full text-white font-bold py-2 px-3 rounded-lg transition" style={{backgroundColor: currentTheme.strokeFill}}>
                                                         {loadingStates.prop ? "업데이트 중..." : "속성 목록 업데이트"}
                                                     </button>
                                                 </div>
@@ -645,7 +619,7 @@ function App() {
                                                     {selectProperties.map(p => <option key={p.id} value={p.name}>{p.name}</option>)}
                                                 </select>
                                             ) : (
-                                                <button onClick={() => handleCreateProperty('select')} disabled={loadingStates.prop}
+                                                <button onClick={() => handleCreateDifficultyProperty()} disabled={loadingStates.prop}
                                                         className="w-full text-white font-bold py-2 px-3 rounded-lg text-xs transition" style={{backgroundColor: currentTheme.strokeFill}}>
                                                     {loadingStates.prop ? "생성 중..." : "'업무난이도' 속성 생성"}
                                                 </button>
@@ -660,6 +634,7 @@ function App() {
                                                                     const newName = prompt("새로운 옵션 이름:", opt.name);
                                                                     if (newName && newName.trim()) handleManageSelectOption('UPDATE_OPTION', { optionId: opt.id, newName });
                                                                 }}>✏️</button>
+                                                                {/* 삭제 버튼이 제거되었습니다. */}
                                                             </div>
                                                         </div>
                                                     ))}
@@ -761,3 +736,4 @@ function App() {
 }
 
 export default App;
+
