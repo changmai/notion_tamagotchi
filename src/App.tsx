@@ -23,13 +23,13 @@ import { getFunctions, httpsCallable } from "firebase/functions";
 
 // --- ⚠️ 중요: 여기에 본인의 Firebase 설정 객체를 붙여넣으세요 ---
 const firebaseConfig = {
-    apiKey: "AIzaSyDZZMSJG4sh9Vw-T7pjMztC2swkOg1i8os",
-    authDomain: "notion-tamagotchi.firebaseapp.com",
-    projectId: "notion-tamagotchi",
-    storageBucket: "notion-tamagotchi.appspot.com",
-    messagingSenderId: "128399204318",
-    appId: "1:128399204318:web:197bf0d12b437b910f474f",
-    measurementId: "G-02V3VDK4Q6"
+    apiKey: "YOUR_API_KEY",
+    authDomain: "YOUR_AUTH_DOMAIN",
+    projectId: "YOUR_PROJECT_ID",
+    storageBucket: "YOUR_STORAGE_BUCKET",
+    messagingSenderId: "YOUR_MESSAGING_SENDER_ID",
+    appId: "YOUR_APP_ID",
+    measurementId: "YOUR_MEASUREMENT_ID"
 };
 
 
@@ -308,7 +308,7 @@ function App() {
             action,
             payload,
           });
-          // alert('옵션이 업데이트되었습니다!'); // 성공 시에는 굳이 alert를 띄우지 않고 새로고침만 합니다.
+          // alert('옵션이 업데이트되었습니다!');
           await fetchProperties(settings.selectedDbId);
         } catch (err: any) {
           alert(`업데이트 실패: ${err.message}`);
@@ -565,26 +565,31 @@ function App() {
 
                                 <div className="flex-1 space-y-3">
                                     <div className="sidebar-section rounded-lg p-3 border-2">
-                                        <h3 className="font-bold text-xs mb-2" style={{ color: currentTheme.strokeFill }}>1. 데이터베이스 선택</h3>
-                                        {!notionToken ? (
-                                            <button onClick={handleNotionConnect} disabled={loadingStates.notion}
-                                                    className="text-white font-bold py-2 px-3 rounded-lg w-full text-xs transition hover:opacity-80 border-2"
-                                                    style={{ backgroundColor: currentTheme.strokeFill, borderColor: currentTheme.strokeFill }}>
-                                                {loadingStates.notion ? "..." : "Notion 연동하기"}
-                                            </button>
-                                        ) : (
-                                            <select value={settings.selectedDbId} onChange={e => setSettings({...settings, selectedDbId: e.target.value, xpPropertyName: '', statusPropertyName: '', difficultyPropertyName: ''})} disabled={loadingStates.db}
-                                                className="w-full p-1.5 border-2 rounded-lg text-xs font-medium shadow-sm" style={{ borderColor: currentTheme.strokeFill, color: currentTheme.strokeFill, backgroundColor: 'white' }}>
-                                                <option value="">{loadingStates.db ? "로딩중..." : "-- DB 선택 --"}</option>
-                                                {databases.map(db => <option key={db.id} value={db.id}>{db.title}</option>)}
-                                            </select>
-                                        )}
+                                        <h3 className="font-bold text-xs mb-2" style={{ color: currentTheme.strokeFill }}>1. Notion 연동</h3>
+                                        <button onClick={handleNotionConnect} disabled={loadingStates.notion}
+                                                className="text-white font-bold py-2 px-3 rounded-lg w-full text-xs transition hover:opacity-80 border-2"
+                                                style={{
+                                                    backgroundColor: notionToken ? '#16a34a' : currentTheme.strokeFill,
+                                                    borderColor: notionToken ? '#15803d' : currentTheme.strokeFill
+                                                }}>
+                                            {loadingStates.notion ? "연동 중..." : (notionToken ? "Notion 재연동" : "Notion 연동하기")}
+                                        </button>
+                                        {notionToken && <p className="mt-1 text-xs text-green-600 font-bold text-center">✓ 연동 완료</p>}
+                                    </div>
+
+                                    <div className="sidebar-section rounded-lg p-3 border-2">
+                                        <h3 className="font-bold text-xs mb-2" style={{ color: currentTheme.strokeFill }}>2. 데이터베이스 선택</h3>
+                                        <select value={settings.selectedDbId} onChange={e => setSettings({...settings, selectedDbId: e.target.value, xpPropertyName: '', statusPropertyName: '', difficultyPropertyName: ''})} disabled={!notionToken || loadingStates.db}
+                                            className="w-full p-1.5 border-2 rounded-lg text-xs font-medium shadow-sm" style={{ borderColor: currentTheme.strokeFill, color: currentTheme.strokeFill, backgroundColor: 'white' }}>
+                                            <option value="">{loadingStates.db ? "로딩중..." : "-- DB 선택 --"}</option>
+                                            {databases.map(db => <option key={db.id} value={db.id}>{db.title}</option>)}
+                                        </select>
                                     </div>
 
                                     {settings.selectedDbId && (
                                     <>
                                         <div className="sidebar-section rounded-lg p-3 border-2">
-                                            <h3 className="font-bold text-xs mb-2" style={{ color: currentTheme.strokeFill }}>2. 경험치 속성 (필수)</h3>
+                                            <h3 className="font-bold text-xs mb-2" style={{ color: currentTheme.strokeFill }}>3. 경험치 속성 (필수)</h3>
                                             <select value={settings.xpPropertyName} onChange={e => setSettings({...settings, xpPropertyName: e.target.value})} disabled={loadingStates.prop}
                                                     className="w-full p-1.5 border-2 rounded-lg text-xs font-medium shadow-sm" style={{ borderColor: currentTheme.strokeFill, color: currentTheme.strokeFill, backgroundColor: 'white' }}>
                                                 <option value="">{loadingStates.prop ? "로딩중..." : "-- 숫자 속성 선택 --"}</option>
@@ -593,7 +598,7 @@ function App() {
                                         </div>
 
                                         <div className="sidebar-section rounded-lg p-3 border-2">
-                                            <h3 className="font-bold text-xs mb-2" style={{ color: currentTheme.strokeFill }}>3. 대표 상태 속성 (선택)</h3>
+                                            <h3 className="font-bold text-xs mb-2" style={{ color: currentTheme.strokeFill }}>4. 대표 상태 속성 (선택)</h3>
                                             {statusProperties.length > 0 ? (
                                                 <select value={settings.statusPropertyName} onChange={e => setSettings({...settings, statusPropertyName: e.target.value})}
                                                         className="w-full p-1.5 border-2 rounded-lg text-xs font-medium shadow-sm" style={{ borderColor: currentTheme.strokeFill, color: currentTheme.strokeFill, backgroundColor: 'white' }}>
@@ -609,7 +614,7 @@ function App() {
                                         </div>
 
                                         <div className="sidebar-section rounded-lg p-3 border-2">
-                                            <h3 className="font-bold text-xs mb-2" style={{ color: currentTheme.strokeFill }}>4. 업무난이도 속성 (선택)</h3>
+                                            <h3 className="font-bold text-xs mb-2" style={{ color: currentTheme.strokeFill }}>5. 업무난이도 속성 (선택)</h3>
                                             {selectProperties.length > 0 ? (
                                                 <select value={settings.difficultyPropertyName} onChange={e => setSettings({...settings, difficultyPropertyName: e.target.value})}
                                                         className="w-full p-1.5 border-2 rounded-lg text-xs font-medium shadow-sm" style={{ borderColor: currentTheme.strokeFill, color: currentTheme.strokeFill, backgroundColor: 'white' }}>
