@@ -23,13 +23,13 @@ import { getFunctions, httpsCallable } from "firebase/functions";
 
 // --- ⚠️ 중요: 여기에 본인의 Firebase 설정 객체를 붙여넣으세요 ---
 const firebaseConfig = {
-    apiKey: "AIzaSyDZZMSJG4sh9Vw-T7pjMztC2swkOg1i8os",
-    authDomain: "notion-tamagotchi.firebaseapp.com",
-    projectId: "notion-tamagotchi",
-    storageBucket: "notion-tamagotchi.appspot.com",
-    messagingSenderId: "128399204318",
-    appId: "1:128399204318:web:197bf0d12b437b910f474f",
-    measurementId: "G-02V3VDK4Q6"
+    apiKey: "YOUR_API_KEY", // Firebase 콘솔에서 실제 값을 복사하여 붙여넣으세요.
+    authDomain: "YOUR_AUTH_DOMAIN",
+    projectId: "YOUR_PROJECT_ID",
+    storageBucket: "YOUR_STORAGE_BUCKET",
+    messagingSenderId: "YOUR_MESSAGING_SENDER_ID",
+    appId: "YOUR_APP_ID",
+    measurementId: "YOUR_MEASUREMENT_ID"
 };
 
 
@@ -167,7 +167,7 @@ function App() {
     const toggleSidebar = () => setSidebarOpen(!isSidebarOpen);
 
     const handleNotionConnect = () => {
-        const NOTION_CLIENT_ID = "259d872b-594c-80c7-9fd9-0037bc5be4d1";
+        const NOTION_CLIENT_ID = "YOUR_NOTION_CLIENT_ID";
         const NOTION_REDIRECT_URI = window.location.origin;
         const authUrl = `https://api.notion.com/v1/oauth/authorize?client_id=${NOTION_CLIENT_ID}&response_type=code&owner=user&redirect_uri=${encodeURIComponent(NOTION_REDIRECT_URI)}`;
         window.location.href = authUrl;
@@ -630,11 +630,9 @@ function App() {
                                                         <div key={opt.id} className="flex items-center justify-between text-xs my-1">
                                                             <span className="truncate pr-2" style={{ color: currentTheme.strokeFill }}>{opt.name}</span>
                                                             <div className="flex-shrink-0">
-                                                                <button className="mr-1 text-base" onClick={() => {
-                                                                    const newName = prompt("새로운 옵션 이름:", opt.name);
-                                                                    if (newName && newName.trim()) handleManageSelectOption('UPDATE_OPTION', { optionId: opt.id, newName });
-                                                                }}>✏️</button>
-                                                                {/* 삭제 버튼이 제거되었습니다. */}
+                                                                <button className="text-base" onClick={() => {
+                                                                    if (window.confirm(`'${opt.name}' 옵션을 삭제하시겠습니까?`)) handleManageSelectOption('DELETE_OPTION', { optionId: opt.id });
+                                                                }}>❌</button>
                                                             </div>
                                                         </div>
                                                     ))}
