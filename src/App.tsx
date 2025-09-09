@@ -552,7 +552,7 @@ function App() {
                         </div>
                     </div>
                 ) : (
-                    <div className="w-full max-w-sm mx-auto relative">
+                    <div className="w-full max-w-sm mx-auto relative overflow-hidden">
                         <button onClick={toggleSidebar} className={`absolute top-2 left-2 z-50 w-8 h-8 rounded-lg shadow-md flex flex-col items-center justify-center space-y-1 transition-all duration-300 hover:scale-105 ${isSidebarOpen ? 'hamburger-open' : ''}`}
                             style={{ backgroundColor: currentTheme.highlightFill, border: `2px solid ${currentTheme.strokeFill}` }}>
                             <div className="hamburger-line w-4 h-0.5 rounded-full" style={{ backgroundColor: currentTheme.strokeFill }}></div>
