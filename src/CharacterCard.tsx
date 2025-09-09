@@ -665,7 +665,8 @@ const CharacterCard: React.FC<CharacterCardProps> = ({
     const weeklyProgress = weeklyGoal > 0 ? Math.min((weeklyExp / weeklyGoal) * 100, 100) : 0;
 
     return (
-        <div ref={cardRef} className="relative w-full max-w-sm mx-auto rounded-xl shadow-2xl overflow-hidden border-4" style={{ borderColor: currentTheme.strokeFill, backgroundColor: currentTheme.highlightFill }}>
+        // --- 🎨 개선 요청 사항 반영: 그림자 조정 ---
+        <div ref={cardRef} className="relative w-full max-w-sm mx-auto rounded-xl shadow-xl overflow-hidden border-4" style={{ borderColor: currentTheme.strokeFill, backgroundColor: currentTheme.highlightFill }}>
             <div className="p-4 border-b-2" style={{ borderColor: currentTheme.bodyFill }}>
                 <p className="text-2xl font-bold text-white text-center" style={{ textShadow: `2px 2px 0px ${currentTheme.strokeFill}` }}>My Notion Pet</p>
                 <div className="flex justify-between items-center mt-1 text-xs">
@@ -752,4 +753,3 @@ const CharacterCard: React.FC<CharacterCardProps> = ({
 };
 
 export default CharacterCard;
-
