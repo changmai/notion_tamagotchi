@@ -261,24 +261,7 @@ function App() {
             setLoadingStates(prev => ({ ...prev, prop: false }));
         }
     }, [functions]);
-    
-    // --- 🎨 개선 요청 사항 반영: '상태' 속성 생성 핸들러 ---
-    const handleCreateStatusProperty = useCallback(async () => {
-        if (!settings.selectedDbId) return alert("먼저 데이터베이스를 선택해주세요.");
-        if (!window.confirm("'상태' 속성을 새로 생성하시겠습니까? Notion의 기본 'To-do', 'In progress', 'Done' 상태가 생성됩니다.")) return;
-        setLoadingStates(prev => ({...prev, prop: true}));
-        try {
-            const createProp = httpsCallable(functions, 'createProperty');
-            // Notion API는 status: {} 로 보내면 기본 상태 그룹을 생성해줍니다.
-            const propertyConfig = { "상태": { status: {} } };
-            await createProp({ databaseId: settings.selectedDbId, propertyConfig });
-            await fetchProperties(settings.selectedDbId);
-            alert("'상태' 속성이 생성되었습니다. 목록에서 선택해주세요.");
-        } catch (err: any) { alert(`생성 실패: ${err.message}`); }
-        finally { setLoadingStates(prev => ({...prev, prop: false})); }
-    }, [settings.selectedDbId, functions, fetchProperties]);
 
-    // --- 🎨 개선 요청 사항 반영: '업무난이도' 속성 생성 핸들러 (기존 코드 재사용) ---
     const handleCreateDifficultyProperty = useCallback(async () => {
         if (!settings.selectedDbId) return alert("먼저 데이터베이스를 선택해주세요.");
         if (!window.confirm("'업무난이도' 속성을 새로 생성하시겠습니까?")) return;
@@ -446,6 +429,13 @@ function App() {
         return statusProp.status.options.filter(opt => completeOptionIds.has(opt.id));
     }, [properties, settings.statusPropertyName]);
 
+    // --- 🎨 개선 요청 사항 반영: Notion DB URL 생성 ---
+    const notionDbUrl = useMemo(() => {
+        if (!settings.selectedDbId) return '';
+        const dbIdWithoutDashes = settings.selectedDbId.replace(/-/g, '');
+        return `https://www.notion.so/${dbIdWithoutDashes}`;
+    }, [settings.selectedDbId]);
+
 
     if (isLoading && !currentUser && !publicUserId) {
         return (
@@ -502,6 +492,9 @@ function App() {
                     font-size: 12px;
                     transition: all 0.2s;
                     border: 2px solid ${currentTheme.strokeFill};
+                    text-decoration: none;
+                    display: inline-block;
+                    text-align: center;
                 }
                 .action-button:hover {
                     opacity: 0.8;
@@ -622,9 +615,23 @@ function App() {
                                                     {statusProperties.map(p => <option key={p.id} value={p.name}>{p.name}</option>)}
                                                 </select>
                                             ) : (
-                                                <button onClick={handleCreateStatusProperty} disabled={loadingStates.prop} className="action-button">
-                                                    '상태' 속성 생성
-                                                </button>
+                                                <div className="text-center text-xs space-y-2" style={{color: currentTheme.strokeFill}}>
+                                                    <p>⚠️ '상태' 속성이 없습니다.</p>
+                                                    <p className='font-bold'>아래 링크로 이동하여 '상태' 속성을 직접 추가해주세요.</p>
+                                                    <div className='flex space-x-2 mt-2'>
+                                                        <a href={notionDbUrl} target="_blank" rel="noopener noreferrer" className="action-button flex-1">
+                                                            Notion DB로 이동
+                                                        </a>
+                                                        <button 
+                                                            onClick={() => fetchProperties(settings.selectedDbId)} 
+                                                            disabled={loadingStates.prop} 
+                                                            className="action-button flex-1"
+                                                            style={{backgroundColor: currentTheme.highlightFill, color: currentTheme.strokeFill}}
+                                                        >
+                                                            새로고침
+                                                        </button>
+                                                    </div>
+                                                </div>
                                             )}
                                             {completedStatusOptions.length > 0 && (
                                                 <div className="mt-2 pt-2 border-t-2 text-xs" style={{borderColor: currentTheme.strokeFill}}>
@@ -636,7 +643,6 @@ function App() {
                                             )}
                                         </div>
                                         
-                                        {/* --- 🎨 개선 요청 사항 반영: '업무난이도' 속성 섹션 --- */}
                                         <div className="sidebar-section rounded-lg p-3 border-2">
                                             <h3 className="font-bold text-xs mb-2" style={{ color: currentTheme.strokeFill }}>4. 업무난이도 속성 (필수)</h3>
                                             {loadingStates.prop ? (
