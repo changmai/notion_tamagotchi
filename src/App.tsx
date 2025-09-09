@@ -261,7 +261,24 @@ function App() {
             setLoadingStates(prev => ({ ...prev, prop: false }));
         }
     }, [functions]);
+    
+    // --- 🎨 개선 요청 사항 반영: '상태' 속성 생성 핸들러 ---
+    const handleCreateStatusProperty = useCallback(async () => {
+        if (!settings.selectedDbId) return alert("먼저 데이터베이스를 선택해주세요.");
+        if (!window.confirm("'상태' 속성을 새로 생성하시겠습니까? Notion의 기본 'To-do', 'In progress', 'Done' 상태가 생성됩니다.")) return;
+        setLoadingStates(prev => ({...prev, prop: true}));
+        try {
+            const createProp = httpsCallable(functions, 'createProperty');
+            // Notion API는 status: {} 로 보내면 기본 상태 그룹을 생성해줍니다.
+            const propertyConfig = { "상태": { status: {} } };
+            await createProp({ databaseId: settings.selectedDbId, propertyConfig });
+            await fetchProperties(settings.selectedDbId);
+            alert("'상태' 속성이 생성되었습니다. 목록에서 선택해주세요.");
+        } catch (err: any) { alert(`생성 실패: ${err.message}`); }
+        finally { setLoadingStates(prev => ({...prev, prop: false})); }
+    }, [settings.selectedDbId, functions, fetchProperties]);
 
+    // --- 🎨 개선 요청 사항 반영: '업무난이도' 속성 생성 핸들러 (기존 코드 재사용) ---
     const handleCreateDifficultyProperty = useCallback(async () => {
         if (!settings.selectedDbId) return alert("먼저 데이터베이스를 선택해주세요.");
         if (!window.confirm("'업무난이도' 속성을 새로 생성하시겠습니까?")) return;
@@ -271,6 +288,7 @@ function App() {
             const propertyConfig = { "업무난이도": { select: { options: [{ name: "상" }, { name: "중" }, { name: "하" }, { name: "즉시처리" }] } } };
             await createProp({ databaseId: settings.selectedDbId, propertyConfig });
             await fetchProperties(settings.selectedDbId);
+            alert("'업무난이도' 속성이 생성되었습니다. 목록에서 선택해주세요.");
         } catch (err: any) { alert(`생성 실패: ${err.message}`); }
         finally { setLoadingStates(prev => ({...prev, prop: false})); }
     }, [settings.selectedDbId, functions, fetchProperties]);
@@ -337,7 +355,7 @@ function App() {
         if (notionCode && currentUser) {
             handleNotionCallback(notionCode, currentUser);
         }
-    }, [currentUser]);
+    }, [currentUser, functions]);
 
     useEffect(() => {
         const userIdToFetch = publicUserId || currentUser?.uid;
@@ -373,7 +391,7 @@ function App() {
             };
             loadDatabases();
         }
-    }, [notionToken, currentUser]);
+    }, [notionToken, currentUser, functions]);
 
     useEffect(() => {
         if (settings.selectedDbId && currentUser) {
@@ -415,8 +433,8 @@ function App() {
     // --- 렌더링을 위한 데이터 ---
     const levelData = calculateLevelAndRebirthData(tamagotchiState.totalExp);
     const currentTheme = levelStyles[levelData.level] || levelStyles[1];
-    const statusProperties = Object.values(properties || {}).filter(p => p.type === 'status');
-    const selectProperties = Object.values(properties || {}).filter(p => p.type === 'select');
+    const statusProperties = useMemo(() => Object.values(properties || {}).filter(p => p.type === 'status'), [properties]);
+    const selectProperties = useMemo(() => Object.values(properties || {}).filter(p => p.type === 'select'), [properties]);
     const EXP_LEVELS = [50, 30, 10, 5];
     const completedStatusOptions = useMemo(() => {
         if (!properties || !settings.statusPropertyName) return [];
@@ -473,6 +491,25 @@ function App() {
                 .sidebar-section {
                     background-color: ${currentTheme.bodyFill};
                     border-color: ${currentTheme.strokeFill};
+                }
+                 .action-button {
+                    background-color: ${currentTheme.strokeFill};
+                    color: white;
+                    font-weight: bold;
+                    padding: 8px 12px;
+                    border-radius: 8px;
+                    width: 100%;
+                    font-size: 12px;
+                    transition: all 0.2s;
+                    border: 2px solid ${currentTheme.strokeFill};
+                }
+                .action-button:hover {
+                    opacity: 0.8;
+                }
+                .action-button:disabled {
+                    background-color: #9ca3af;
+                    border-color: #6b7280;
+                    cursor: not-allowed;
                 }
             `}</style>
             <div className="min-h-screen flex items-center justify-center p-4">
@@ -573,13 +610,22 @@ function App() {
 
                                     {settings.selectedDbId && (
                                     <>
+                                        {/* --- 🎨 개선 요청 사항 반영: '상태' 속성 섹션 --- */}
                                         <div className="sidebar-section rounded-lg p-3 border-2">
                                             <h3 className="font-bold text-xs mb-2" style={{ color: currentTheme.strokeFill }}>3. 대표 상태 속성 (필수)</h3>
-                                            <select value={settings.statusPropertyName} onChange={e => setSettings({...settings, statusPropertyName: e.target.value})}
-                                                    className="w-full p-1.5 border-2 rounded-lg text-xs font-medium shadow-sm" style={{ borderColor: currentTheme.strokeFill, color: currentTheme.strokeFill, backgroundColor: 'white' }}>
-                                                <option value="">-- 상태 속성 선택 --</option>
-                                                {statusProperties.map(p => <option key={p.id} value={p.name}>{p.name}</option>)}
-                                            </select>
+                                            {loadingStates.prop ? (
+                                                <p className="text-xs text-center" style={{ color: currentTheme.strokeFill }}>속성 로딩 중...</p>
+                                            ) : statusProperties.length > 0 ? (
+                                                <select value={settings.statusPropertyName} onChange={e => setSettings({...settings, statusPropertyName: e.target.value})}
+                                                        className="w-full p-1.5 border-2 rounded-lg text-xs font-medium shadow-sm" style={{ borderColor: currentTheme.strokeFill, color: currentTheme.strokeFill, backgroundColor: 'white' }}>
+                                                    <option value="">-- 상태 속성 선택 --</option>
+                                                    {statusProperties.map(p => <option key={p.id} value={p.name}>{p.name}</option>)}
+                                                </select>
+                                            ) : (
+                                                <button onClick={handleCreateStatusProperty} disabled={loadingStates.prop} className="action-button">
+                                                    '상태' 속성 생성
+                                                </button>
+                                            )}
                                             {completedStatusOptions.length > 0 && (
                                                 <div className="mt-2 pt-2 border-t-2 text-xs" style={{borderColor: currentTheme.strokeFill}}>
                                                     <p className="font-bold mb-1" style={{color: currentTheme.strokeFill}}>✓ '완료' 처리 기준:</p>
@@ -590,25 +636,27 @@ function App() {
                                             )}
                                         </div>
                                         
+                                        {/* --- 🎨 개선 요청 사항 반영: '업무난이도' 속성 섹션 --- */}
                                         <div className="sidebar-section rounded-lg p-3 border-2">
                                             <h3 className="font-bold text-xs mb-2" style={{ color: currentTheme.strokeFill }}>4. 업무난이도 속성 (필수)</h3>
-                                            <select value={settings.difficultyPropertyName} onChange={e => setSettings({...settings, difficultyPropertyName: e.target.value})}
+                                            {loadingStates.prop ? (
+                                                <p className="text-xs text-center" style={{ color: currentTheme.strokeFill }}>속성 로딩 중...</p>
+                                            ) : selectProperties.length > 0 ? (
+                                                <select value={settings.difficultyPropertyName} onChange={e => setSettings({...settings, difficultyPropertyName: e.target.value})}
                                                     className="w-full p-1.5 border-2 rounded-lg text-xs font-medium shadow-sm" style={{ borderColor: currentTheme.strokeFill, color: currentTheme.strokeFill, backgroundColor: 'white' }}>
-                                                <option value="">-- 단일 선택 속성 --</option>
-                                                {selectProperties.map(p => <option key={p.id} value={p.name}>{p.name}</option>)}
-                                            </select>
+                                                    <option value="">-- 단일 선택 속성 --</option>
+                                                    {selectProperties.map(p => <option key={p.id} value={p.name}>{p.name}</option>)}
+                                                </select>
+                                            ) : (
+                                                 <button onClick={handleCreateDifficultyProperty} disabled={loadingStates.prop} className="action-button">
+                                                    '업무난이도' 속성 생성
+                                                </button>
+                                            )}
                                             
                                             {settings.difficultyPropertyName && (
                                                 <div className="mt-2 pt-2 border-t-2" style={{borderColor: currentTheme.strokeFill}}>
                                                     <h4 className="font-bold text-xs mb-2 text-center" style={{ color: currentTheme.strokeFill }}>난이도별 경험치 설정</h4>
                                                     
-                                                    {difficultyOrder.length === 0 && (
-                                                        <button onClick={handleCreateDifficultyProperty} disabled={loadingStates.prop}
-                                                                className="w-full text-white font-bold py-2 px-3 rounded-lg text-xs transition" style={{backgroundColor: currentTheme.strokeFill}}>
-                                                            {loadingStates.prop ? "생성 중..." : "기본 옵션 생성"}
-                                                        </button>
-                                                    )}
-
                                                     {difficultyOrder.map((optionName, index) => (
                                                         <div key={optionName + index} className={`flex items-center justify-between text-xs my-1 p-1 rounded-md ${index >= 4 ? 'opacity-50' : ''}`} style={{backgroundColor: currentTheme.highlightFill}}>
                                                             <span className="font-bold w-16" style={{ color: currentTheme.strokeFill }}>{index < 4 ? `${EXP_LEVELS[index]} EXP` : '기타 (0 EXP)'}</span>
@@ -626,7 +674,7 @@ function App() {
                                                         </div>
                                                     ))}
                                                     
-                                                    {difficultyOrder.length < 4 && difficultyOrder.length > 0 && (
+                                                    {(difficultyOrder.length > 0 || (properties && properties[settings.difficultyPropertyName]?.select?.options.length === 0)) && (
                                                         <div className="flex mt-2">
                                                              <input type="text" id="new-option-input" placeholder="새 옵션 추가" className="flex-1 text-xs p-1 rounded-l-md border-2" style={{borderColor: currentTheme.strokeFill, backgroundColor: 'white'}}/>
                                                              <button onClick={() => {
@@ -739,4 +787,3 @@ function App() {
 }
 
 export default App;
-
